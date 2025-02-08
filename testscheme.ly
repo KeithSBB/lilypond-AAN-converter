@@ -17,11 +17,10 @@
 #(hash-set! chord-intvl-table "dim" dim-intvls)
 #(hash-set! chord-intvl-table "o" dim-intvls)
 
-#(define chord-keys (hash-map->list (lambda (key value) key) chord-intvl-table))
+#(define chord-keys (hash-map->-list (lambda (key value) key) chord-intvl-table))
 #(format #f "Chord keys: ~a\n" chord-keys)
 
 #(format #f "semitones: ~a\n" (hash-ref chord-intvl-table "M"))
-
 
 % chord-history code
 #(define chord-history '())
@@ -29,7 +28,7 @@
 #(define (search-history note-event)
    (format #t "search-history:  entered\n")
    (let* ((pitch (ly:music-property note-event 'pitch))
-          (note-alt (list ( ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
+          (note-alt (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
      (let ((item (assoc note-alt chord-history)))
        (if item
            (cdr item)
@@ -38,7 +37,7 @@
 #(define (save-update-history note-event text)
    (format #t "save-update-history:  entered\n")
    (let* ((pitch (ly:music-property note-event 'pitch))
-          (note-alt (list ( ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
+          (note-alt (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
      (let ((item (assoc note-alt chord-history)))
        (if item
            (set-cdr! item text)
@@ -53,23 +52,21 @@
 
 % End of chord-history code
 
-
-%Gets all articulations that have ^".." text from note-event or
+%Gets all articulations that have ^\"..\" text from note-event or
 %chord-event (should contain chord info)
 #(define (filter-for-chord-names articulations)
-   (format #t "filter-for-chord-names: Entered \n" )
+   (format #t "filter-for-chord-names: Entered \n")
    (if (null? articulations)
        (begin (format #t "filter-for-chord-names: articulations are empty\n") articulations)
        (begin (format #t "filter-for-chord-names: articulations are not empty\n")
          (filter (lambda (articulation)
                    (let ((type (ly:music-property articulation 'name))
                          (direction (ly:music-property articulation 'direction))
-                         (text (ly:music-property articulation 'text))                  )
+                         (text (ly:music-property articulation 'text)))
                      (and (equal? type 'TextScriptEvent)
                           (equal? direction 1)
-                          (any (lambda (x) (string=? text x)) chord-keys) ) ))
-                 articulations) ) ) )
-
+                          (any (lambda (x) (string=? text x)) chord-keys))))
+                 articulations))))
 
 % calculate the pitch(octave notename alteration) from root-pitch and semitone
 #(define (semitone-interval root-pitch semitone)
@@ -103,14 +100,13 @@
           (pitches (cons root-pitch
                          (map (lambda (semitone)
                                 (semitone-interval root-pitch semitone))
-                              semitone-list))) )
+                              semitone-list))))
      (save-update-history note-event semitone-list)
      (map (lambda (pitch)
             (make-music 'NoteEvent
                         'pitch pitch
                         'duration dur))
-          pitches)
-     ))
+          pitches)))
 
 % Create a chord from a note-event with chord info in articulation
 #(define (create-chord-from-note event)
@@ -125,22 +121,19 @@
             (if (null? filtered)
                 event
                 (begin
-                 ( let* ((chordName (ly:music-property (first filtered) 'text))
-                         (elements (note-event-to-chord-elements event (hash-ref chord-intvl-table chordName)))
-                         )
+                 (let* ((chordName (ly:music-property (first filtered) 'text))
+                        (elements (note-event-to-chord-elements event (hash-ref chord-intvl-table chordName))))
                    (format #t "create-chord-from-note: Creating chord '~a' from note \n" chordName)
                    (make-music
                     'EventChord
-                    'elements elements
-                    )
-                   ))))))))
+                    'elements elements)))))))))
 
 % replace an AAN chord-event (bass note & chord note with articulation on chord-event with chord
 #(define (create-chord-from-chord eventchord)
    (format #t "create-chord-from-chord: Entered \n")
-   (let* ( (chord-elements (ly:music-property eventchord 'elements))
-           (filtered (filter-for-chord-names chord-elements))
-           (chordName (if (null? filtered) "Not Found" (ly:music-property (first filtered) 'text))))
+   (let* ((chord-elements (ly:music-property eventchord 'elements))
+          (filtered (filter-for-chord-names chord-elements))
+          (chordName (if (null? filtered) "Not Found" (ly:music-property (first filtered) 'text))))
      (format #t "create-chord-from-chord:  chord-elements:\n~a\n" chord-elements)
      (map
       (lambda (event)
@@ -149,17 +142,14 @@
           (format #t "create-chord-from-chord: Creating chord ~a from AAN chord with\n ~a\n\n" chordName elements)
           (make-music
            'EventChord
-           'elements elements
-           ))
+           'elements elements))
         )
       (filter
        (lambda (event)
-         (and (ly:music? event) (equal? (ly:music-property event 'name) 'NoteEvent) (is-chord? event))
-         )
+         (and (ly:music? event) (equal? (ly:music-property event 'name) 'NoteEvent) (is-chord? event)))
        chord-elements))))
 
-
-% Test if note is at or above the middle bass cleff staff line (returns true or false)
+% Test if note is at or above the middle bass clef staff line (returns true or false)
 #(define (is-chord? note-event)
    (format #t "is-chord?: Entered\n")
    (if (equal? (ly:music-property note-event 'name) 'NoteEvent)
@@ -167,8 +157,7 @@
               (note-alteration (ly:pitch-alteration pitch))
               (semitones (ly:pitch-semitones pitch)))
          (or (> semitones -11) (and (= semitones -11) (= note-alteration (/ -1 2)))))
-       #f)
-   )
+       #f))
 
 % Creates a rest with the same duration as note-event
 #(define (make-rest note-event)
@@ -187,10 +176,8 @@
                (if (is-chord? event)
                    (create-chord-from-note event)
                    (make-rest event)))
-
               ((and (ly:music? event) (equal? (ly:music-property event 'name) 'EventChord))
                (begin  (format #t "scheme-extract-chords: Finished create-chord-from-chord\n") (create-chord-from-chord event)))
-
               (else event)))
       new-music)))
 
