@@ -1,7 +1,7 @@
 \version "2.24.4"
-\include "testscheme.ly"
+\include "accbasschord.ly"
 
-testnotes = { c'4^"M" d'^"m"  <c, c'> c'^"m" c'^"o" }
+testnotes = { a,4 a^"M" e, a }
 
 {
   \clef "bass"
@@ -11,7 +11,7 @@ testnotes = { c'4^"M" d'^"m"  <c, c'> c'^"m" c'^"o" }
 }
 {
   \clef "bass"
-  %\aan-extract-chords \testnotes
+  \aan-extract-bass \testnotes
 
-  %\displayMusic \testnotes
+  % \testnotes
 }
