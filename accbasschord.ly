@@ -166,8 +166,7 @@
                    (format #t "create-chord-from-note: Creating chord '~a' from elements:\n~a \n" chord-name elements)
                    (let ((newchord (make-music
                     'EventChord
-                    'elements elements
-                    'duration duration)))
+                    'elements elements )))
                      (format #t "create-chord-from-note:  result:\n ~a\n" newchord)
                      newchord)))))))
 
@@ -197,8 +196,7 @@
                  (begin (format #t "create-chord-from-chord: eventchord:\n  ~a\n" eventchord)
                   (let ((newchord (make-music
                                     'EventChord
-                                    'elements new-elements
-                                    'duration duration)))
+                                    'elements new-elements )))
                      (format #t "create-chord-from-note:  result:\n ~a\n" newchord)
                      (ly:music-deep-copy newchord))))))))
 
@@ -263,8 +261,9 @@ aan-extract-chords = #(define-music-function (music) (ly:music?)
                         (format #t "\\aan-extract-chords: Entered\n=================================\n")
                         (clear-history)
                         (let ((proc-music (scheme-extract-chords music)))
-                          (format #t "\n BEGINING of display-music\n~a\n" proc-music)
+                          (format #t "\n BEGINING of display-music\n")
                           
+                          (display-lily-music  proc-music)
                           proc-music))
 
 % <<<< Code specific to extraction of bass notes follows here >>>>
@@ -298,3 +297,4 @@ aan-extract-chords = #(define-music-function (music) (ly:music?)
 aan-extract-bass = #(define-music-function (music) (ly:music?)
   (format #t "\\aan-extract-bass: Entering\n====================================\n")
   (scheme-extract-bass music))
+
