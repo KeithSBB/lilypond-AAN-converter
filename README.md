@@ -14,7 +14,7 @@ chords;
 AAN is a specialized notation for accordion sheet music.  Specifically the stradella bass which on a typical accordion has major, minor, seventh and diminished keys.  Notes placed below the middle staff line of the bass clef (c# and lower) are intepreted as bass notes.   Notes on the middle bass cleff staff line are annotated with a maj, min, 7 or dim text string and are interpreted as the stradella chord. 
 This notation makes writing music for the accordion easier and quicker, however midi produced from lilypond will not sound the chords and if you wanted fully spelled out chords you need to re-write the bass clef.
 The accbasschord.ly lilypond scheme file contains functions which convert  The AAN bass cleff music into bass notes and fully spelled out accordion chords.  The resulting music can then be used to generate midi files and/or engrave fully spelled out bass and chords.
-###The stradella bass chords are triads where
+### The stradella bass chords are triads where
 * maj: root, maj-3rd, 5th
 * min: root, min-3rd, 5th
 * 7: root, maj-3rd, min-7th   (omits the 5th)
