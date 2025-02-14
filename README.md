@@ -24,6 +24,9 @@ The accbasschord.ly lilypond scheme file contains functions which convert  The A
 
 ## Syntax examples
 C major chord: c'^"M", or  c'^"maj"
+
 d minor chord: d^"m", ot d^"min"
+
 e dominate seventh chord: e^"7"
+
 g diminished chord: g^"d", g^"dim",or g^"o"
