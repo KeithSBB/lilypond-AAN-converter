@@ -19,7 +19,7 @@ The accbasschord.ly lilypond scheme file contains functions which convert  The A
 * min: root, min-3rd, 5th
 * 7: root, maj-3rd, min-7th   (omits the 5th)
 * dim: root, min-3rd, maj-6th (bb7)
-* Note that an augmented chord can be played by playing a 7 chord and the augented 5th in th bass
+* Note that an augmented chord can be played by playing a 7 chord and the augented 5th in the bass
 * Many other chord combinations can be made to play more complex chords.
 
 ## Syntax examples
