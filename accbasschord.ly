@@ -27,8 +27,14 @@
 
 
 \version "2.24.4"
- #(ly:set-option 'compile-scheme-code)
+
+
+
+#(ly:set-option 'compile-scheme-code)
+
 #(use-modules (ice-9 format))
+
+#(define make-staccato #f)
 
 % Define the hash table at the top level
 #(define chord-intvl-table (make-hash-table))
@@ -211,13 +217,42 @@
        #f))
 
 #(define (is-AAN-bass? note-event)
-   (format #t "is-AAN-bass?: Entered\n")
+   (format #t "is-AAN-bass?: Entered \n")
    (if (equal? (ly:music-property note-event 'name) 'NoteEvent)
        (let* ((pitch (ly:music-property note-event 'pitch))
               (note-alteration (ly:pitch-alteration pitch))
               (semitones (ly:pitch-semitones pitch)))
          (not (or (> semitones -11) (and (= semitones -11) (= note-alteration (/ -1 2))))))
        #f))
+
+
+#(define (make-script x)
+   (make-music 'ArticulationEvent
+               'articulation-type x))
+
+#(define (add-script m x)
+   (case (ly:music-property m 'name)
+     ((NoteEvent) (set! (ly:music-property m 'articulations)
+                      (append (ly:music-property m 'articulations)
+                         (list (make-script x))))
+                   m)
+     ((EventChord)(set! (ly:music-property m 'elements)
+                      (append (ly:music-property m 'elements)
+                         (list (make-script x))))
+                   m)
+     (else #f)))
+
+#(define (add-staccato m)
+         (add-script m 'staccato))
+
+addStacc = #(define-music-function (music)
+                 (ly:music?)
+           (map-some-music add-staccato music))
+
+#(define (maybe-staccato notes)
+   (if make-staccato
+       (map-some-music add-staccato notes)    
+       notes))
 
 
 % Creates a rest with the same duration as note-event
@@ -257,14 +292,17 @@
       new-music)))
 
 % Defines the main call to extract chords used in lilypond music files
-aan-extract-chords = #(define-music-function (music) (ly:music?)
+aan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
                         (format #t "\\aan-extract-chords: Entered\n=================================\n")
                         (clear-history)
+                          (if (boolean? staccato)      
+                              (set! make-staccato staccato)       
+                              (set! make-staccato #f))
                         (let ((proc-music (scheme-extract-chords music)))
                           (format #t "\n BEGINING of display-music\n")
                           
                           (display-lily-music  proc-music)
-                          proc-music))
+                          (maybe-staccato proc-music)))
 
 % <<<< Code specific to extraction of bass notes follows here >>>>
 #(define (process-chords-for-bass chord)
@@ -278,8 +316,7 @@ aan-extract-chords = #(define-music-function (music) (ly:music?)
                   (begin
                   (format #t "process-chords-for-bass: duration is ~a\n" duration)
                   (make-music 'EventChord 
-                              'elements filtered
-                              'duration duration))))))
+                              'elements (maybe-staccato filtered)))))))
                   
 
 #(define (scheme-extract-bass music)
@@ -291,10 +328,17 @@ aan-extract-chords = #(define-music-function (music) (ly:music?)
                       (let ((duration (ly:music-property event 'duration)))
                       (make-music 'RestEvent 'duration duration)))
                 ((music-is-of-type? event 'event-chord) (process-chords-for-bass event))
-                    (else event)))
-             new-music)))
+                    (else  event)))
+              new-music)
+           (maybe-staccato new-music)
+            ))
 
-aan-extract-bass = #(define-music-function (music) (ly:music?)
+aan-extract-bass = #(define-music-function (staccato music) 
+                      ((boolean? #f)  ly:music?)
   (format #t "\\aan-extract-bass: Entering\n====================================\n")
+  (format #t "Staccato input is ~a\n" staccato)
+  (if (boolean? staccato)      
+        (set! make-staccato staccato)       
+        (set! make-staccato #f))
   (scheme-extract-bass music))
 
