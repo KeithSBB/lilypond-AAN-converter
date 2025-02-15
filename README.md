@@ -6,12 +6,17 @@ chords;
 
        \include "accbasschord.ly"
 
-       \aan-extract-bass {... AAN music ...}  "Places rests at chords"
+       \aan-extract-bass [staccato bool] {... AAN music ...}  "Places rests at chords"
        
-       \aan-extract-chords (... AAN music ...} "spells out chords and places rests at bass notes"
+       \aan-extract-chords [staccato bool] (... AAN music ...} "spells out chords and places rests at bass notes"
 
 ## American Accordion Notation
-AAN is a specialized notation for accordion sheet music.  Specifically the stradella bass which on a typical accordion has major, minor, seventh and diminished keys.  Notes placed below the middle staff line of the bass clef (c# and lower) are intepreted as bass notes.   Notes on the middle bass cleff staff line are annotated with a maj, min, 7 or dim text string and are interpreted as the stradella chord. 
+AAN is a specialized notation for accordion sheet music.  Specifically the stradella bass which on a typical accordion has major, minor, seventh and diminished keys.  
+
+* Notes placed below the middle staff line of the bass clef (c# and lower) are intepreted as bass notes.   
+
+* Notes on the middle bass cleff staff line are annotated with a maj, min, 7 or dim text string and are interpreted as the stradella chord. 
+
 This notation makes writing music for the accordion easier and quicker, however midi produced from lilypond will not sound the chords and if you wanted fully spelled out chords you need to re-write the bass clef.
 The accbasschord.ly lilypond scheme file contains functions which convert  The AAN bass cleff music into bass notes and fully spelled out accordion chords.  The resulting music can then be used to generate midi files and/or engrave fully spelled out bass and chords.
 ### The stradella bass chords are triads where
@@ -30,3 +35,24 @@ d minor chord: d^"m", ot d^"min"
 e dominate seventh chord: e^"7"
 
 g diminished chord: g^"d", g^"dim",or g^"o"
+
+### Adding staccato to notes
+When playing bass-chords on the accordion, staccato is often implied.  To get the midi output files to sound correctly there is an optional switch to apply staccato to all notes.
+This switch defaults to false where staccato is not applied.  Use the switch as follows:
+
+ \aan-extract-bass ##t {... AAN music ...}  "applies staccato to all the bass notes"
+       
+ \aan-extract-chords ##t (... AAN music ...} "applies staccato to all chords"
+
+ If you do not want staccato, simply omit the ##t argument:
+
+ \aan-extract-bass  {... AAN music ...}
+
+ 
+
+## TODO
+  1. Simultaneous music is not processed correctly: bass and chord
+  2. Accordion compound chords - notation an issue in chord, could use just compound name like 7sus2
+  3. Function to produce print text block of compound chord creation:  7sus2 = R maj + min+1 see Nydana's Accordion Resources: https://nydana.se/accordion.html#chordcombination
+  4. Russian translater:  converts basic chord symbols to cyrillic equivalents 
+
