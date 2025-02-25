@@ -51,8 +51,7 @@ This switch defaults to false where staccato is not applied.  Use the switch as 
  
 
 ## TODO
-  1. Simultaneous music is not processed correctly: bass and chord
-  2. Accordion compound chords - notation an issue in chord, could use just compound name like 7sus2
-  3. Function to produce print text block of compound chord creation:  7sus2 = R maj + min+1 see Nydana's Accordion Resources: https://nydana.se/accordion.html#chordcombination
-  4. Russian translater:  converts basic chord symbols to cyrillic equivalents 
+  1. Accordion compound chords - just use compound name like 7sus2 (yet to be added).  How these chords are produced is up to the performer.
+  2. switch to optionally add chord text above chords
+  3. Russian translater:  converts basic chord symbols to cyrillic equivalents 
 
