@@ -50,8 +50,4 @@ This switch defaults to false where staccato is not applied.  Use the switch as 
 
  
 
-## TODO
-  1. Accordion compound chords - just use compound name like 7sus2 (yet to be added).  How these chords are produced is up to the performer.
-  2. switch to optionally add chord text above chords
-  3. Russian translater:  converts basic chord symbols to cyrillic equivalents 
 
