@@ -138,8 +138,8 @@ fis,4 fis^"m" cis, fis|cis,4 cis'^"7" gis, cis |fis,4 fis^"m" cis, fis|fis,4 fis
 
 }
 
-MIDI_Chords = \aan-extract-chords \left
-MIDI_Bass = \aan-extract-bass \left
+MIDI_Chords = \aan-extract-chords ##t \left
+MIDI_Bass = \aan-extract-bass ##t \left
 
 
 \score {
@@ -176,7 +176,7 @@ MIDI_Bass = \aan-extract-bass \left
     \new Staff = "Treble" \with {
       midiInstrument = "flute"
       midiMinimumVolume = #0.2
-      midiMaximumVolume = #0.9
+      midiMaximumVolume = #0.5
 
     } \right
     
@@ -189,9 +189,9 @@ MIDI_Bass = \aan-extract-bass \left
     
     \unfoldRepeats
     \new Staff = "Chords" \with {
-      midiInstrument = "acoustic grand"
+      midiInstrument = "electric piano 2"
       midiMinimumVolume = #0.2
-      midiMaximumVolume = #0.5
+      midiMaximumVolume = #0.7
     }  { \clef bass \MIDI_Chords }
     
   >>

@@ -35,7 +35,7 @@
 #(use-modules (ice-9 format))
 #(use-modules (srfi srfi-1))
 
-#(define debug-level 'debug)  % Options: 'none, 'debug, 'info, 'warning
+#(define debug-level 'info)  % Options: 'none, 'debug, 'info, 'warning
 
 
 #(define (log-message level format-string . args)
@@ -69,6 +69,7 @@
 #(hash-set! chord-intvl-table "dim" dim-intvls)
 #(hash-set! chord-intvl-table "d" dim-intvls)
 #(hash-set! chord-intvl-table "o" dim-intvls)
+#(hash-set! chord-intvl-table "7sus2" (list 2 7 10 ))
 
 #(define chord-keys (map car (hash-map->list (lambda (key value) (cons key value)) chord-intvl-table)))
 #(format #f "Chord keys: ~a\n" chord-keys)
@@ -344,7 +345,7 @@ aan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:
                               (set! make-staccato #f))
                         (let ((proc-music (scheme-extract-chords music)))
                           (log-message 'debug "\n BEGINING of display-music\n")
-                          (display-lily-music  proc-music)
+                          ;(display-lily-music  proc-music)
                           (maybe-staccato proc-music)))
 
 % <<<< Code specific to extraction of bass notes follows here >>>>
