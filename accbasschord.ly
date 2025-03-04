@@ -191,7 +191,9 @@
                 (root-notename (ly:pitch-notename root-pitch))
                 (elements (note-event-to-chord-elements event chord-name)))
            (log-message 'debug "create-chord-from-note: Creating chord '~a' with root ~a, elements: ~a\n" chord-name root-notename elements)
-           (let ((newchord (make-music 'EventChord 'elements elements)))
+           (let ((newchord (make-music 'EventChord 
+                                       'elements elements
+                                       'articulations note-articu)))
              (log-message 'debug "create-chord-from-note: result: ~a\n" newchord)
              newchord)))))))
 
@@ -248,10 +250,14 @@
              (if (equal? (length new-elements) 0)
                  (make-music 'RestEvent 'duration duration)
                  (begin (log-message 'debug "create-chord-from-chord: eventchord:\n  ~a\n" eventchord)
-                  (let ((newchord (make-music
+                  (let* ((chord-articu (filter (lambda (elem)
+                                                 (not (equal? (ly:music-property elem 'name) 'note-event)))
+                                               chord-elements))
+                          (newchord (make-music
                                     'EventChord
-                                    'elements new-elements )))
-                     (log-message 'debug "create-chord-from-note:  result:\n ~a\n" newchord)
+                                    'elements new-elements 
+                                    'articulations chord-articu)))
+                     (log-message 'debug "create-chord-from-chord:  result:\n ~a\n" newchord)
                      (ly:music-deep-copy newchord))))))))
 
 % Test if note is at or above the middle bass clef staff line (returns true or false)
