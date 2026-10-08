@@ -1,53 +1,100 @@
 # lilypond-AAN-converter
 ## Scheme code to convert American Accordion Notation music into fully spelled out accordion chords.
-This script has two main scheme functions for converting from American 
-Accordion Notation to bass note voice and fully spelled out accordion
-chords;
 
-       \include "accbasschord.ly"
+American Accordion Notation (AAN, also called AAA) is a bass-clef shorthand for Stradella left hand. This repository turns that shorthand into separate bass and chord voices.
 
-       \aan-extract-bass [staccato bool] {... AAN music ...}  "Places rests at chords"
-       
-       \aan-extract-chords [staccato bool] (... AAN music ...} "spells out chords and places rests at bass notes"
+Two includes, two jobs:
+
+| Include | Use |
+| --- | --- |
+| `accbasschord.ly` | MIDI. Optional staccato, because left-hand accordion playing often defaults to it. |
+| `aan-engrave.ly` | Print. Spelled chords plus chord symbols. Articulations come only from the source. |
+
+`aan-engrave.ly` includes the MIDI functions, so a print file can still call `\aan-extract-bass` and `\aan-extract-chords`.
+
+```lilypond
+\include "accbasschord.ly"
+
+\aan-extract-bass [staccato bool] { ... AAN music ... }
+\aan-extract-chords [staccato bool] { ... AAN music ... }
+```
 
 ## American Accordion Notation
-AAN is a specialized notation for accordion sheet music.  Specifically the stradella bass which on a typical accordion has major, minor, seventh and diminished keys.  
 
-* Notes placed below the middle staff line of the bass  (c# and lower) are intepreted as bass notes.   
+Notes on or below C♯3 (below the middle line of the bass staff) are bass-row notes. Notes on the middle line and above, annotated with a quality, are Stradella chord buttons.
 
-* Notes on the middle bass  staff line are annotated with a maj, min, 7 or dim text string and are interpreted as the stradella chord. 
+* maj: root, major 3rd, 5th
+* min: root, minor 3rd, 5th
+* 7: root, major 3rd, minor 7th (the 5th is omitted)
+* dim: root, minor 3rd, diminished 7th
+* An augmented sonority is a 7 chord with the augmented 5th in the bass
+* `7sus2` is accepted (root, 2nd, 5th, minor 7th) but is not a Stradella row
 
-This notation makes writing music for the accordion easier and quicker, however midi produced from lilypond will not sound the chords and if you wanted fully spelled out chords you need to re-write the bass .
-The accbasschord.ly lilypond scheme file contains functions which convert  The AAN bass  music into bass notes and fully spelled out accordion chords.  The resulting music can then be used to generate midi files and/or engrave fully spelled out bass and chords.
-### The stradella bass chords are triads where
-* maj: root, maj-3rd, 5th
-* min: root, min-3rd, 5th
-* 7: root, maj-3rd, min-7th   (omits the 5th)
-* dim: root, min-3rd, maj-6th (bb7)
-* Note that an augmented chord can be played by playing a 7 chord and the augented 5th in the bass
-* Many other chord combinations can be made to play more complex chords.
+A omitted quality reuses the last quality written for that pitch class.
 
-## Syntax examples
-C major chord: c'^"M", or  c'^"maj"
+### Syntax examples
 
-d minor chord: d^"m", ot d^"min"
+C major chord: `c'^"M"` or `c'^"maj"`
 
-e dominate seventh chord: e^"7"
+D minor chord: `d^"m"` or `d^"min"`
 
-g diminished chord: g^"d", g^"dim",or g^"o"
+E dominant seventh: `e^"7"`
 
-### Adding staccato to notes
-When playing bass-chords on the accordion, staccato is often implied.  To get the midi output files to sound correctly there is an optional switch to apply staccato to all notes.
-This switch defaults to false where staccato is not applied.  Use the switch as follows:
+G diminished: `g^"d"`, `g^"dim"`, or `g^"o"`
 
- \aan-extract-bass ##t {... AAN music ...}  "applies staccato to all the bass notes"
-       
- \aan-extract-chords ##t (... AAN music ...} "applies staccato to all chords"
+### MIDI staccato
 
- If you do not want staccato, simply omit the ##t argument:
+`##t` applies staccato to the extracted MIDI voice. It does not belong on an engraved staff. Omit it, or use the engraving functions, to keep the source articulation.
 
- \aan-extract-bass  {... AAN music ...}
+```lilypond
+\aan-extract-bass ##t { ... AAN music ... }
+\aan-extract-chords ##t { ... AAN music ... }
 
- 
+\aan-extract-bass { ... AAN music ... }
+```
 
+## Engraving
 
+`\aan-engrave-bass` keeps bass-row notes and rests the chord row. `\aan-engrave-chords` spells the chord row in bass clef and writes a chord symbol above each chord attack. A tied continuation does not get a second symbol. Written staccato, accents, and other text stay; the quality token (`"M"`, `"min"`, `"7"`, `"dim"`) is replaced by the symbol.
+
+```lilypond
+\include "aan-engrave.ly"
+
+\score {
+  <<
+    \new Staff { \clef bass \aan-engrave-bass \left }
+    \new Staff { \clef bass \aan-engrave-chords \left }
+  >>
+  \layout { }
+}
+```
+
+English symbols are lead-sheet names from the written root: `C`, `Cm`, `G7`, `Cdim`, `C7sus2`. Flats and sharps follow the AAN spelling (`ees^"M"` is `Eb`).
+
+Apply these functions to absolute music, or outside `\relative`, same as the MIDI extractors.
+
+### Russian text, title excepted
+
+`\aanLanguage #'russian` switches chord symbols and the text pass. Bayan textbook suffixes are Б (major), М (minor), 7, and У (diminished): `ДоБ`, `РеМ`, `Соль7`, `ЛяУ`. Pitch names are До, Ре, Ми, Фа, Соль, Ля, Си, with `-диез` and `-бемоль`.
+
+The song title is not translated. Write it as a literal `\header` field. If the same string also appears in the music, register it with `\aanProtectTitle`.
+
+`\aan-text` is the opt-in for header and markup strings. `\aan-translate` walks text scripts, lyrics, and marks. Generated chord symbols are skipped. Text that is not in the dictionary is left unchanged and warned once.
+
+```lilypond
+\include "aan-engrave.ly"
+\aanProtectTitle "Dmitr The Imp"
+\aanLanguage #'russian
+
+\header {
+  title = "Dmitr The Imp"          % not translated
+  instrument = \aan-text "Bayan"   % Баян
+  composer = \aan-text "Composed by Keith Smith"
+}
+
+russianChords = \aan-translate \aan-engrave-chords \left
+```
+
+Set the language before the engraving call. A music variable already built in English keeps the symbols it was built with.
+
+`testsong-engrave.ly` is the print fixture: English `A7`, `C`, `Adim`, then Russian `Ля7`, `ДоБ`, `ЛяУ`, with `fine` and `D.C. al fine` translated and the title unchanged.
