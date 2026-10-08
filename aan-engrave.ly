@@ -168,13 +168,20 @@ aanProtectTitle =
           (raw (aan-quality-token (append (if (pair? note-arts) note-arts '())
                                           (if (pair? extra-arts) extra-arts '()))))
           (elements (note-event-to-chord-elements note-event raw))
-          (kept (append (aan-drop-quality note-arts) (aan-drop-quality extra-arts)))
+          (kept (filter (lambda (a)
+                          (and (ly:music? a)
+                               (not (memq (ly:music-property a 'name)
+                                          '(NoteEvent RestEvent SkipEvent)))))
+                        (append (aan-drop-quality note-arts)
+                                (aan-drop-quality extra-arts))))
           (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
           (cue-ev (if root-cue? (aan-make-root-cue) #f))
           (marks (filter ly:music? (list symbol-ev cue-ev)))
-          (all (append elements marks kept)))
-     (make-music 'EventChord 'elements all)))
+          (all (append elements marks)))
+     (make-music 'EventChord
+                 'elements all
+                 'articulations kept)))
 
 #(define (aan-bass-pitch event)
    (and (ly:music? event)

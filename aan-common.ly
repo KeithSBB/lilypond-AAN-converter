@@ -102,10 +102,12 @@
    (set! chord-history '()))
 
 #(define (get-event-chord-duration eventchord)
-   (let* ((elements (ly:music-property eventchord 'elements))
-          (durations (map (lambda (el) (ly:music-property el 'duration)) elements)))
+   (let* ((elements (filter ly:music? (ly:music-property eventchord 'elements)))
+          (durations (filter ly:duration?
+                             (map (lambda (el) (ly:music-property el 'duration))
+                                  elements))))
      (if (null? durations)
-         '()
+         (ly:make-duration 2 0)
          (car durations))))
 
 % Text scripts written above the note (^"M", ^"min", ...) are quality tokens.
@@ -200,7 +202,10 @@
 #(define (make-rest note-event)
    (log-message 'debug "make-rest: Make Rest\n")
    (let ((duration (ly:music-property note-event 'duration)))
-     (make-music 'RestEvent 'duration duration)))
+     (make-music 'RestEvent
+                 'duration (if (ly:duration? duration)
+                               duration
+                               (ly:make-duration 2 0)))))
 
 #(define (aan-event-has-tie? music)
    (let* ((arts (ly:music-property music 'articulations))

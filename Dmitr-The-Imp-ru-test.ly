@@ -59,7 +59,7 @@ global = {
   \tempo 4=120
 }
 
-voltaFine = \markup {  \text \bold {pour Fine}}
+voltaFine = \markup { \bold "pour Fine" }
 
 right = \relative {
 
@@ -171,18 +171,18 @@ MIDI_Bass = \aan-extract-bass ##t \left
 
 
 
-% Russian engraving of the score above.  The title is a literal and is not translated.
-% Quality tokens become row letters.  fine and D.C. al fine stay Italian.
+% Russian engraving of the left hand from the score above.
+% The title is a literal and is not translated.  The right hand is not
+% walked: discant registers and Italian fine / D.C. al fine stay as written.
 \aanLanguage #'russian
-RU_Chords = \aan-translate \aan-engrave-chords \left
-RU_Bass = \aan-translate \aan-engrave-bass \left
-RU_Right = \aan-translate \right
+RU_Chords = \aan-engrave-chords \left
+RU_Bass = \aan-engrave-bass \left
 
 \score {
   \new PianoStaff \with {
 
   } <<
-    \new Staff = "Treble" \RU_Right
+    \new Staff = "Treble" \right
     \new Staff = "chords" \with {
         instrumentName = \aan-text "Chords"
         shortInstrumentName = \aan-text "Chords"
