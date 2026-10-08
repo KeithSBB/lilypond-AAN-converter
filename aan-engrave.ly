@@ -29,10 +29,12 @@
 % Articulations are taken from the source.  The MIDI staccato switch in
 % accbasschord.ly is not applied here.
 %
-% Russian mode rewrites chord symbols and text passed through \aan-text or
-% \aan-translate.  The song title is never translated: leave \header title
-% as a literal, and set aan-song-title to the same string so a copy of the
-% title inside the music is also left alone.
+% Russian mode writes the Stradella row letter over the spelled chord (Б М 7 У)
+% and does not print a pitch name.  English mode keeps lead-sheet symbols.
+% A source counterbass is e_"_" and is engraved e_"B".  The row is never inferred.
+% When the bass pitch class differs from the chord root, the chord gets _"(.)".
+% Italian dynamics and Italian navigation (f, fine, D.C.) are not translated.
+% The song title is never translated.
 
 \version "2.24.4"
 
@@ -116,14 +118,32 @@ aanProtectTitle =
    (let* ((quality (aan-resolve-quality note-event raw-quality))
           (canonical (aan-canonical-quality quality))
           (pitch (ly:music-property note-event 'pitch)))
-     (string-append (aan-format-pitch pitch aan-language)
-                    (aan-quality-suffix canonical aan-language))))
+     (if (eq? aan-language 'russian)
+         (aan-quality-suffix canonical 'russian)
+         (string-append (aan-format-pitch pitch 'english)
+                        (aan-quality-suffix canonical 'english)))))
 
 #(define (aan-make-symbol-event text)
    (make-music 'TextScriptEvent
                'text text
                'direction 1
                'aan-generated #t))
+
+% Reading aid from bayan editions: parenthesized dot under the chord when the
+% sounding bass is not the chord root.  Not a pitch name.
+#(define (aan-make-root-cue)
+   (make-music 'TextScriptEvent
+               'text "(.)"
+               'direction -1
+               'aan-generated #t))
+
+#(define (aan-pitch-class pitch)
+   (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch)))
+
+#(define (aan-same-pitch-class? left right)
+   (and (ly:pitch? left)
+        (ly:pitch? right)
+        (equal? (aan-pitch-class left) (aan-pitch-class right))))
 
 #(define (aan-generated-text? event)
    (and (ly:music? event)
@@ -142,7 +162,8 @@ aanProtectTitle =
      copy))
 
 % Spelled chord, source articulations except the quality token, optional symbol.
-#(define (aan-spell-chord note-event extra-arts emit-symbol?)
+% root-cue? adds _"(.)" when the bass pitch class is not the chord root.
+#(define (aan-spell-chord note-event extra-arts emit-symbol? root-cue?)
    (let* ((note-arts (ly:music-property note-event 'articulations))
           (raw (aan-quality-token (append (if (pair? note-arts) note-arts '())
                                           (if (pair? extra-arts) extra-arts '()))))
@@ -150,64 +171,123 @@ aanProtectTitle =
           (kept (append (aan-drop-quality note-arts) (aan-drop-quality extra-arts)))
           (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
-          (all (if symbol-ev (append elements (list symbol-ev) kept) (append elements kept))))
+          (cue-ev (if root-cue? (aan-make-root-cue) #f))
+          (marks (filter ly:music? (list symbol-ev cue-ev)))
+          (all (append elements marks kept)))
      (make-music 'EventChord 'elements all)))
 
-#(define (engrave-note event tied-in)
-   (if (is-AAN-chord? event)
-       (cons (aan-spell-chord event '() (not tied-in))
-             (aan-event-has-tie? event))
-       (cons event #f)))
+#(define (aan-bass-pitch event)
+   (and (ly:music? event)
+        (is-AAN-bass? event)
+        (ly:music-property event 'pitch)))
 
-#(define (engrave-event-chord event tied-in)
+#(define (aan-root-cue? bass-pitch chord-event)
+   (let ((root (ly:music-property chord-event 'pitch)))
+     (and (ly:pitch? bass-pitch)
+          (ly:pitch? root)
+          (not (aan-same-pitch-class? bass-pitch root)))))
+
+#(define (engrave-note event tied-in bass-pitch)
+   (cond
+    ((is-AAN-chord? event)
+     (cons (aan-spell-chord event '() (not tied-in) (aan-root-cue? bass-pitch event))
+           (cons (aan-event-has-tie? event) bass-pitch)))
+    ((is-AAN-bass? event)
+     (cons (make-rest event)
+           (cons #f (ly:music-property event 'pitch))))
+    (else
+     (cons event (cons #f bass-pitch)))))
+
+#(define (engrave-event-chord event tied-in bass-pitch)
    (let* ((elements (ly:music-property event 'elements))
           (chord-notes (filter (lambda (e) (and (ly:music? e) (is-AAN-chord? e))) elements))
+          (bass-here (filter (lambda (e) (aan-bass-pitch e)) elements))
+          (local-bass (if (null? bass-here)
+                          bass-pitch
+                          (ly:music-property (first bass-here) 'pitch)))
           (duration (get-event-chord-duration event)))
      (if (null? chord-notes)
-         (cons (make-music 'RestEvent 'duration duration) #f)
+         (cons (make-music 'RestEvent 'duration duration)
+               (cons #f local-bass))
          (cons (aan-spell-chord (first chord-notes)
                                 (filter (lambda (e)
                                           (not (and (ly:music? e)
                                                     (eq? (ly:music-property e 'name) 'NoteEvent))))
                                         elements)
-                                (not tied-in))
-               (aan-event-has-tie? event)))))
+                                (not tied-in)
+                                (aan-root-cue? local-bass (first chord-notes)))
+               (cons (aan-event-has-tie? event) local-bass)))))
 
-#(define (engrave-sequential music)
+#(define (engrave-sequential music bass-pitch)
    (let loop ((items (ly:music-property music 'elements))
               (acc '())
-              (tied-in #f))
+              (tied-in #f)
+              (bass bass-pitch))
      (if (null? items)
-         (cons (aan-replace-elements music (reverse acc)) #f)
-         (let ((step (engrave-walk (car items) tied-in)))
-           (loop (cdr items) (cons (car step) acc) (cdr step))))))
+         (cons (aan-replace-elements music (reverse acc)) (cons #f bass))
+         (let ((step (engrave-walk (car items) tied-in bass)))
+           (loop (cdr items)
+                 (cons (car step) acc)
+                 (cadr step)
+                 (cddr step))))))
 
-#(define (engrave-walk music tied-in)
+#(define (engrave-walk music tied-in bass-pitch)
    (cond
-    ((not (ly:music? music)) (cons music #f))
+    ((not (ly:music? music)) (cons music (cons #f bass-pitch)))
     ((music-is-of-type? music 'note-event)
-     (engrave-note music tied-in))
+     (engrave-note music tied-in bass-pitch))
     ((music-is-of-type? music 'event-chord)
-     (engrave-event-chord music tied-in))
+     (engrave-event-chord music tied-in bass-pitch))
     ((music-is-of-type? music 'sequential-music)
-     (engrave-sequential music))
+     (engrave-sequential music bass-pitch))
     ((music-is-of-type? music 'simultaneous-music)
      (cons (aan-replace-elements
             music
-            (map (lambda (e) (car (engrave-walk e #f)))
+            (map (lambda (e) (car (engrave-walk e #f bass-pitch)))
                  (ly:music-property music 'elements)))
-           #f))
+           (cons #f bass-pitch)))
     (else
      (let ((copy (ly:music-deep-copy music)))
        (let ((el (ly:music-property copy 'element)))
          (if (ly:music? el)
              (set! (ly:music-property copy 'element)
-                   (car (engrave-walk el tied-in)))))
+                   (car (engrave-walk el tied-in bass-pitch)))))
        (let ((els (ly:music-property copy 'elements)))
          (if (pair? els)
              (set! (ly:music-property copy 'elements)
-                   (map (lambda (e) (car (engrave-walk e #f))) els))))
-       (cons copy #f)))))
+                   (map (lambda (e) (car (engrave-walk e #f bass-pitch))) els))))
+       (cons copy (cons #f bass-pitch))))))
+
+% Source counterbass mark is a down-text underscore.  Engrave it as B.
+% Any other bass is left unmarked: the row is never inferred.
+#(define (aan-counterbass-mark? event)
+   (and (ly:music? event)
+        (eq? (ly:music-property event 'name) 'TextScriptEvent)
+        (equal? (ly:music-property event 'direction) -1)
+        (equal? (ly:music-property event 'text) "_")))
+
+#(define (aan-rewrite-counterbass music)
+   (cond
+    ((not (ly:music? music)) music)
+    ((aan-counterbass-mark? music)
+     (let ((copy (ly:music-deep-copy music)))
+       (set! (ly:music-property copy 'text) "B")
+       (set! (ly:music-property copy 'aan-generated) #t)
+       copy))
+    (else
+     (let ((copy (ly:music-deep-copy music)))
+       (let ((el (ly:music-property copy 'element)))
+         (if (ly:music? el)
+             (set! (ly:music-property copy 'element) (aan-rewrite-counterbass el))))
+       (let ((els (ly:music-property copy 'elements)))
+         (if (pair? els)
+             (set! (ly:music-property copy 'elements)
+                   (map aan-rewrite-counterbass els))))
+       (let ((arts (ly:music-property copy 'articulations)))
+         (if (pair? arts)
+             (set! (ly:music-property copy 'articulations)
+                   (map aan-rewrite-counterbass arts))))
+       copy))))
 
 aan-engrave-bass =
 #(define-music-function (music) (ly:music?)
@@ -216,12 +296,12 @@ aan-engrave-bass =
      (set! make-staccato #f)
      (let ((result (scheme-extract-bass music)))
        (set! make-staccato previous)
-       result)))
+       (aan-rewrite-counterbass result))))
 
 aan-engrave-chords =
 #(define-music-function (music) (ly:music?)
    (clear-history)
-   (car (engrave-walk music #f)))
+   (car (engrave-walk music #f #f)))
 
 % ---------------------------------------------------------------------------
 % Text.  Chord symbols are already in the selected language and are marked
@@ -229,6 +309,8 @@ aan-engrave-chords =
 % Unlisted text is left in the source language and warned once.
 % ---------------------------------------------------------------------------
 
+% Prose and instrument names only.  Dynamics and Italian navigation stay
+% Italian: f, p, mf, fine, D.C., D.S., rit., a tempo, coda.
 #(define aan-text-dictionary
    '(("Bayan" . "Баян")
      ("bayan" . "Баян")
@@ -239,34 +321,8 @@ aan-engrave-chords =
      ("Chord" . "Аккорд")
      ("Composed by Keith Smith" . "Сочинение: Кит Смит")
      ("Keith Smith" . "Кит Смит")
-     ("fine" . "конец")
-     ("Fine" . "Конец")
-     ("   fine" . "конец")
-     ("pour Fine" . "к концу")
-     ("D.C. al fine" . "С начала до конца")
-     ("D.C al fine" . "С начала до конца")
-     ("D.C." . "С начала")
-     ("D.C" . "С начала")
-     ("D.S. al fine" . "С знака до конца")
-     ("D.S. al Coda" . "С знака до коды")
-     ("D.S." . "С знака")
-     ("al fine" . "до конца")
-     ("Coda" . "Кода")
-     ("coda" . "кода")
-     ("Segno" . "Сеньо")
-     ("rit." . "замедляя")
-     ("ritard." . "замедляя")
-     ("accel." . "ускоряя")
-     ("a tempo" . "в темпе")
-     ("cresc." . "усиливая")
-     ("dim." . "затихая")
-     ("poco" . "немного")
-     ("molto" . "очень")
-     ("espress." . "выразительно")
-     ("dolce" . "нежно")
-     ("cantabile" . "певуче")
-     ("legato" . "легато")
-     ("staccato" . "стаккато")
+     ("Moderato" . "Умеренно")
+     ("moderato" . "Умеренно")
      ("Copyright" . "Авторское право")))
 
 #(define (aan-title-exception? text)

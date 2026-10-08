@@ -1,17 +1,17 @@
 \version "2.24.4"
 \include "aan-engrave.ly"
 
-% Title is stored so a copy of it inside the music is not translated.
-% The \header title below is a literal and is never passed to \aan-text.
+% Title is a literal header field and is never passed to \aan-text.
 #(set! aan-song-title "Engrave Test")
 
-% Source stays in English AAN.  Written articulations are engraving truth.
-% ^"fine" is ordinary text, not a quality token.
+% e,_"_" is an explicit counterbass mark.  It is not inferred.
+% ees, then a^"M" is a bass that differs from the chord root, so the
+% chord is engraved with _"(.)".
 testnotes = \absolute {
   <<
-    { <a, a>4^"7" c,8^"fine" r8 ees,4 ges,4 }
+    { <a, a>4^"7" c,8 r8 ees,4 a4^"M" }
     \\
-    { r8 c'8^"M" a2^"dim" e,8 r8^"D.C. al fine" }
+    { r8 c'8^"M" a2^"dim" e,8_"_" r8_"fine" }
   >>
 }
 
@@ -23,7 +23,8 @@ testnotes = \absolute {
     { \clef bass \aan-engrave-bass \testnotes }
     \new Staff \with { instrumentName = "Chords" }
     { \clef bass \aan-engrave-chords \testnotes }
-    % A7, then C and Adim in the second voice.  No added staccato.
+    % English symbols: A7, C, Adim, A.  Counterbass prints as _"B".
+    % The A chord after ees, gets _"(.)".  fine stays Italian.
   >>
   \header {
     title = "Engrave Test"
@@ -31,7 +32,6 @@ testnotes = \absolute {
   \layout { }
 }
 
-% Language is read when the music functions run, so set it before the calls.
 \aanLanguage #'russian
 russianBass = \aan-engrave-bass \testnotes
 russianChords = \aan-engrave-chords \testnotes
@@ -42,7 +42,7 @@ russianChords = \aan-engrave-chords \testnotes
     { \clef bass \aan-translate \russianBass }
     \new Staff \with { instrumentName = \aan-text "Chords" }
     { \clef bass \aan-translate \russianChords }
-    % Symbols: Ля7, ДоБ, ЛяУ.  fine → конец.  D.C. al fine → С начала до конца.
+    % Row letters only: 7, Б, У, Б.  No pitch names.  f and fine stay Italian.
   >>
   \header {
     title = "Engrave Test"

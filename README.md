@@ -57,6 +57,10 @@ G diminished: `g^"d"`, `g^"dim"`, or `g^"o"`
 
 `\aan-engrave-bass` keeps bass-row notes and rests the chord row. `\aan-engrave-chords` spells the chord row in bass clef and writes a chord symbol above each chord attack. A tied continuation does not get a second symbol. Written staccato, accents, and other text stay; the quality token (`"M"`, `"min"`, `"7"`, `"dim"`) is replaced by the symbol.
 
+A counterbass is marked in the source as a down-text underscore, `e_"_"`. Engraving rewrites that mark to `e_"B"`. No other bass is treated as a counterbass.
+
+When the bass pitch class differs from the chord root, the spelled chord gets `_(.)` under it, the bayan reading aid for “this chord is not in the bass’s row.” The row is taken from the written bass, not guessed.
+
 ```lilypond
 \include "aan-engrave.ly"
 
@@ -71,15 +75,11 @@ G diminished: `g^"d"`, `g^"dim"`, or `g^"o"`
 
 English symbols are lead-sheet names from the written root: `C`, `Cm`, `G7`, `Cdim`, `C7sus2`. Flats and sharps follow the AAN spelling (`ees^"M"` is `Eb`).
 
-Apply these functions to absolute music, or outside `\relative`, same as the MIDI extractors.
-
 ### Russian text, title excepted
 
-`\aanLanguage #'russian` switches chord symbols and the text pass. Bayan textbook suffixes are Б (major), М (minor), 7, and У (diminished): `ДоБ`, `РеМ`, `Соль7`, `ЛяУ`. Pitch names are До, Ре, Ми, Фа, Соль, Ля, Си, with `-диез` and `-бемоль`.
+`\aanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. `7sus2` stays `7sus2` because it is not a Stradella row.
 
-The song title is not translated. Write it as a literal `\header` field. If the same string also appears in the music, register it with `\aanProtectTitle`.
-
-`\aan-text` is the opt-in for header and markup strings. `\aan-translate` walks text scripts, lyrics, and marks. Generated chord symbols are skipped. Text that is not in the dictionary is left unchanged and warned once.
+Dynamics and Italian navigation stay Italian (`f`, `p`, `fine`, `D.C.`, `rit.`). Prose passed through `\aan-text` or `\aan-translate` can still change (`Bayan` → `Баян`, `Moderato` → `Умеренно`). The song title is not translated. Write it as a literal `\header` field. If the same string also appears in the music, register it with `\aanProtectTitle`.
 
 ```lilypond
 \include "aan-engrave.ly"
@@ -97,4 +97,4 @@ russianChords = \aan-translate \aan-engrave-chords \left
 
 Set the language before the engraving call. A music variable already built in English keeps the symbols it was built with.
 
-`testsong-engrave.ly` is the print fixture: English `A7`, `C`, `Adim`, then Russian `Ля7`, `ДоБ`, `ЛяУ`, with `fine` and `D.C. al fine` translated and the title unchanged.
+`testsong-engrave.ly` is the print fixture. English symbols are `A7`, `C`, `Adim`, `A`. Russian symbols are `7`, `Б`, `У`, `Б`. The source `e,_"_"` engraves as `e_"B"`. The A chord after `ees,` carries `_(.)`. `fine` stays Italian, and the title is unchanged.
