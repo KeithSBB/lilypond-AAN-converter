@@ -129,11 +129,57 @@ aanProtectTitle =
                'direction 1
                'aan-generated #t))
 
-% Reading aid: parentheses around the chord's root notehead when the bass
-% pitch class is not that root.  Use the LilyPond music function so the
-% mark is engraved on that note's staff position.
-#(define (aan-mark-root-note note)
-   #{ \parenthesize $note #})
+% Bass-clef center line is d.  Bass notes and the root cue stay on or below
+% it.  Spelled chord notes stay above it.  The cue is a simultaneous note,
+% so ledger lines appear and the chord's timing does not change.
+#(define aan-bass-center (ly:make-pitch -1 1 0))
+#(define aan-octave-down (ly:make-pitch -1 0 0))
+#(define aan-octave-up (ly:make-pitch 1 0 0))
+
+#(define (aan-semitones pitch)
+   (ly:pitch-semitones pitch))
+
+#(define (aan-at-or-below-center pitch)
+   (let loop ((p (ly:make-pitch -1
+                                (ly:pitch-notename pitch)
+                                (ly:pitch-alteration pitch))))
+     (if (<= (aan-semitones p) (aan-semitones aan-bass-center))
+         p
+         (loop (ly:pitch-transpose p aan-octave-down)))))
+
+#(define (aan-with-pitch note pitch)
+   (let ((copy (ly:music-deep-copy note)))
+     (set! (ly:music-property copy 'pitch) pitch)
+     copy))
+
+#(define (aan-place-bass note)
+   (let ((pitch (ly:music-property note 'pitch)))
+     (if (ly:pitch? pitch)
+         (aan-with-pitch note (aan-at-or-below-center pitch))
+         note)))
+
+#(define (aan-raise-above-center notes)
+   (let loop ((notes notes))
+     (let ((low (apply min (map (lambda (n)
+                                  (aan-semitones (ly:music-property n 'pitch)))
+                                notes))))
+       (if (> low (aan-semitones aan-bass-center))
+           notes
+           (loop (map (lambda (n)
+                        (aan-with-pitch n (ly:pitch-transpose
+                                           (ly:music-property n 'pitch)
+                                           aan-octave-up)))
+                      notes))))))
+
+#(define (aan-make-root-cue pitch duration)
+   (let ((cue (make-music 'NoteEvent
+                          'pitch (aan-at-or-below-center pitch)
+                          'duration duration
+                          'tweaks '((Stem.stencil . #f)
+                                    (Flag.stencil . #f)
+                                    (Dots.stencil . #f)
+                                    (font-size . -3)))))
+     #{ \parenthesize $cue #}))
 
 #(define (aan-pitch-class pitch)
    (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch)))
@@ -159,13 +205,14 @@ aanProtectTitle =
      (set! (ly:music-property copy 'elements) new-elements)
      copy))
 
-% Spelled chord, source articulations except the quality token, optional symbol.
-% root-cue? adds a parenthesized cue note on the root's staff line.
+% Spelled chord above the bass-clef center line.  A mismatched bass adds a
+% parenthesized root cue on or below that line, sharing the chord duration.
 #(define (aan-spell-chord note-event extra-arts emit-symbol? root-cue?)
    (let* ((note-arts (ly:music-property note-event 'articulations))
           (raw (aan-quality-token (append (if (pair? note-arts) note-arts '())
                                           (if (pair? extra-arts) extra-arts '()))))
-          (elements (note-event-to-chord-elements note-event raw))
+          (elements (aan-raise-above-center
+                     (note-event-to-chord-elements note-event raw)))
           (kept (filter (lambda (a)
                           (and (ly:music? a)
                                (not (memq (ly:music-property a 'name)
@@ -175,12 +222,15 @@ aanProtectTitle =
           (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
           (marks (filter ly:music? (list symbol-ev)))
-          (root-note (and (pair? elements) (first elements))))
-     (if (and root-cue? (ly:music? root-note))
-         (set-car! elements (aan-mark-root-note root-note)))
-     (make-music 'EventChord
-                 'elements (append elements marks)
-                 'articulations kept)))
+          (chord (make-music 'EventChord
+                             'elements (append elements marks)
+                             'articulations kept))
+          (root (and (pair? elements) (ly:music-property (first elements) 'pitch)))
+          (dur (and (pair? elements) (ly:music-property (first elements) 'duration))))
+     (if (and root-cue? (ly:pitch? root) (ly:duration? dur))
+         (make-music 'SimultaneousMusic
+                     'elements (list chord (aan-make-root-cue root dur)))
+         chord)))
 
 #(define (aan-bass-pitch event)
    (and (ly:music? event)
@@ -198,8 +248,8 @@ aanProtectTitle =
 #(define (aan-bass-only bass-here duration)
    (cond
     ((null? bass-here) (make-music 'RestEvent 'duration duration))
-    ((= (length bass-here) 1) (first bass-here))
-    (else (make-music 'EventChord 'elements bass-here))))
+    ((= (length bass-here) 1) (aan-place-bass (first bass-here)))
+    (else (make-music 'EventChord 'elements (map aan-place-bass bass-here)))))
 
 #(define (engrave-note event tied-in bass-pitch)
    (cond
@@ -207,7 +257,7 @@ aanProtectTitle =
      (cons (aan-spell-chord event '() (not tied-in) (aan-root-cue? bass-pitch event))
            (cons (aan-event-has-tie? event) bass-pitch)))
     ((is-AAN-bass? event)
-     (cons (if aan-keep-bass event (make-rest event))
+     (cons (if aan-keep-bass (aan-place-bass event) (make-rest event))
            (cons #f (ly:music-property event 'pitch))))
     (else
      (cons event (cons #f bass-pitch)))))
