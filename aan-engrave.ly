@@ -194,13 +194,21 @@ aanProtectTitle =
           (ly:pitch? root)
           (not (aan-same-pitch-class? bass-pitch root)))))
 
+#(define aan-keep-bass #f)
+
+#(define (aan-bass-only bass-here duration)
+   (cond
+    ((null? bass-here) (make-music 'RestEvent 'duration duration))
+    ((= (length bass-here) 1) (first bass-here))
+    (else (make-music 'EventChord 'elements bass-here))))
+
 #(define (engrave-note event tied-in bass-pitch)
    (cond
     ((is-AAN-chord? event)
      (cons (aan-spell-chord event '() (not tied-in) (aan-root-cue? bass-pitch event))
            (cons (aan-event-has-tie? event) bass-pitch)))
     ((is-AAN-bass? event)
-     (cons (make-rest event)
+     (cons (if aan-keep-bass event (make-rest event))
            (cons #f (ly:music-property event 'pitch))))
     (else
      (cons event (cons #f bass-pitch)))))
@@ -212,18 +220,28 @@ aanProtectTitle =
           (local-bass (if (null? bass-here)
                           bass-pitch
                           (ly:music-property (first bass-here) 'pitch)))
-          (duration (get-event-chord-duration event)))
-     (if (null? chord-notes)
-         (cons (make-music 'RestEvent 'duration duration)
-               (cons #f local-bass))
-         (cons (aan-spell-chord (first chord-notes)
-                                (filter (lambda (e)
-                                          (not (and (ly:music? e)
-                                                    (eq? (ly:music-property e 'name) 'NoteEvent))))
-                                        elements)
-                                (not tied-in)
-                                (aan-root-cue? local-bass (first chord-notes)))
-               (cons (aan-event-has-tie? event) local-bass)))))
+          (duration (get-event-chord-duration event))
+          (spelled (if (null? chord-notes)
+                       #f
+                       (aan-spell-chord (first chord-notes)
+                                        (filter (lambda (e)
+                                                  (not (and (ly:music? e)
+                                                            (eq? (ly:music-property e 'name) 'NoteEvent))))
+                                                elements)
+                                        (not tied-in)
+                                        (aan-root-cue? local-bass (first chord-notes))))))
+     (cond
+      ((and aan-keep-bass (not (null? bass-here)) spelled)
+       (cons (make-music 'SimultaneousMusic
+                         'elements (list (aan-bass-only bass-here duration) spelled))
+             (cons (aan-event-has-tie? event) local-bass)))
+      (spelled
+       (cons spelled (cons (aan-event-has-tie? event) local-bass)))
+      (else
+       (cons (if aan-keep-bass
+                 (aan-bass-only bass-here duration)
+                 (make-music 'RestEvent 'duration duration))
+             (cons #f local-bass))))))
 
 #(define (engrave-sequential music bass-pitch)
    (let loop ((items (ly:music-property music 'elements))
@@ -308,7 +326,17 @@ aan-engrave-bass =
 aan-engrave-chords =
 #(define-music-function (music) (ly:music?)
    (clear-history)
+   (set! aan-keep-bass #f)
    (car (engrave-walk music #f #f)))
+
+% One bass staff: written bass notes plus spelled chords.
+aan-engrave =
+#(define-music-function (music) (ly:music?)
+   (clear-history)
+   (set! aan-keep-bass #t)
+   (let ((result (car (engrave-walk music #f #f))))
+     (set! aan-keep-bass #f)
+     (aan-rewrite-counterbass result)))
 
 % ---------------------------------------------------------------------------
 % Text.  Chord symbols are already in the selected language and are marked

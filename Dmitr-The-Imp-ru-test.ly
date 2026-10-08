@@ -146,51 +146,24 @@ MIDI_Bass = \aan-extract-bass ##t \left
 
 
 \score {
-  \new PianoStaff \with {
-
-  } <<
-    \new Staff = "Treble"  \right
-    \new Staff = "AAN" \with {
-        instrumentName = "AAN"
-        shortInstrumentName = "AAN"
-      }  { \clef bass \left }
-    \new Staff = "chords" \with {
-        instrumentName = "Chords"
-        shortInstrumentName = "Chords"
-      } { \clef bass \MIDI_Chords }
-    \new Staff = "Bass"  \with {
-        instrumentName = "Bass"
-        shortInstrumentName = "Bass"
-      }{ \clef bass  \MIDI_Bass}
-    
+  \new PianoStaff <<
+    \new Staff = "Treble" \right
+    \new Staff = "AAN" { \clef bass \left }
   >>
   \layout { }
 
 }
 
-
-
-
-% Russian engraving of the left hand from the score above.
-% The title is a literal and is not translated.  The right hand is not
-% walked: discant registers and Italian fine / D.C. al fine stay as written.
+% Russian engraving: one treble staff and one bass staff.
+% The bass staff has the written bass notes and the spelled chords.
+% The title is a literal and is not translated.
 \aanLanguage #'russian
-RU_Chords = \aan-engrave-chords \left
-RU_Bass = \aan-engrave-bass \left
+RU_Left = \aan-engrave \left
 
 \score {
-  \new PianoStaff \with {
-
-  } <<
+  \new PianoStaff <<
     \new Staff = "Treble" \right
-    \new Staff = "chords" \with {
-        instrumentName = \aan-text "Chords"
-        shortInstrumentName = \aan-text "Chords"
-      } { \clef bass \RU_Chords }
-    \new Staff = "Bass" \with {
-        instrumentName = \aan-text "Bass"
-        shortInstrumentName = \aan-text "Bass"
-      } { \clef bass \RU_Bass }
+    \new Staff = "Bass" { \clef bass \RU_Left }
   >>
   \header {
     title = "Dmitr The Imp"
