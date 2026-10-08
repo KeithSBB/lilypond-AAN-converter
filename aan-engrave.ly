@@ -129,13 +129,11 @@ aanProtectTitle =
                'direction 1
                'aan-generated #t))
 
-% Reading aid from bayan editions: parenthesized dot under the chord when the
-% sounding bass is not the chord root.  Not a pitch name.
-#(define (aan-make-root-cue)
-   (make-music 'TextScriptEvent
-               'text "(.)"
-               'direction -1
-               'aan-generated #t))
+% Reading aid: parentheses around the chord's root notehead when the bass
+% pitch class is not that root.  Use the LilyPond music function so the
+% mark is engraved on that note's staff position.
+#(define (aan-mark-root-note note)
+   #{ \parenthesize $note #})
 
 #(define (aan-pitch-class pitch)
    (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch)))
@@ -162,7 +160,7 @@ aanProtectTitle =
      copy))
 
 % Spelled chord, source articulations except the quality token, optional symbol.
-% root-cue? adds _"(.)" when the bass pitch class is not the chord root.
+% root-cue? adds a parenthesized cue note on the root's staff line.
 #(define (aan-spell-chord note-event extra-arts emit-symbol? root-cue?)
    (let* ((note-arts (ly:music-property note-event 'articulations))
           (raw (aan-quality-token (append (if (pair? note-arts) note-arts '())
@@ -176,11 +174,12 @@ aanProtectTitle =
                                 (aan-drop-quality extra-arts))))
           (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
-          (cue-ev (if root-cue? (aan-make-root-cue) #f))
-          (marks (filter ly:music? (list symbol-ev cue-ev)))
-          (all (append elements marks)))
+          (marks (filter ly:music? (list symbol-ev)))
+          (root-note (and (pair? elements) (first elements))))
+     (if (and root-cue? (ly:music? root-note))
+         (set-car! elements (aan-mark-root-note root-note)))
      (make-music 'EventChord
-                 'elements all
+                 'elements (append elements marks)
                  'articulations kept)))
 
 #(define (aan-bass-pitch event)

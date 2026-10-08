@@ -59,7 +59,7 @@ G diminished: `g^"d"`, `g^"dim"`, or `g^"o"`
 
 A counterbass is marked in the source as a down-text underscore, `e_"_"`. Engraving rewrites that mark to `e_"B"`. No other bass is treated as a counterbass.
 
-When the bass pitch class differs from the chord root, the spelled chord gets `_(.)` under it, the bayan reading aid for “this chord is not in the bass’s row.” The row is taken from the written bass, not guessed.
+When the bass pitch class differs from the chord root, the root notehead of the spelled chord is parenthesized. That mark stays on the root's staff position so the pitch can be read. The row is taken from the written bass, not guessed.
 
 ```lilypond
 \include "aan-engrave.ly"
@@ -97,4 +97,4 @@ russianChords = \aan-translate \aan-engrave-chords \left
 
 Set the language before the engraving call. A music variable already built in English keeps the symbols it was built with.
 
-`testsong-engrave.ly` is the print fixture. English symbols are `A7`, `C`, `Adim`, `A`. Russian symbols are `7`, `Б`, `У`, `Б`. The source `e,_"_"` engraves as `e_"B"`. The A chord after `ees,` carries `_(.)`. `fine` stays Italian, and the title is unchanged.
+`testsong-engrave.ly` is the print fixture. English symbols are `A7`, `C`, `Adim`, `A`. Russian symbols are `7`, `Б`, `У`, `Б`. The source `e,_"_"` engraves as `e_"B"`. A chord whose bass is a different pitch class has its root notehead parenthesized. `fine` stays Italian, and the title is unchanged.
