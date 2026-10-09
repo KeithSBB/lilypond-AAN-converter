@@ -59,7 +59,7 @@ G diminished: `g^"d"`, `g^"dim"`, or `g^"o"`
 
 A counterbass is marked in the source as a down-text underscore, `e_"_"`. Engraving rewrites that mark to `e_"B"`. No other bass is treated as a counterbass.
 
-The root cue is switched off. Engraving prints the written bass and the spelled chord only, so timing can be checked without a cue mark.
+When the bass pitch class differs from the chord root, a stemless `(.)` is printed on that root's staff position. It is a note head in a second voice whose length matches the bass voice with skips, so it does not add time. LilyPond draws the ledger line because the mark is a note head. Chord stems stay in the main voice. Bass notes and the cue stay on or below the bass-clef center line; spelled chord notes stay above it. The row is taken from the written bass, not guessed.
 
 ```lilypond
 \include "aan-engrave.ly"
