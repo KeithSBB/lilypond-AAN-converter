@@ -291,32 +291,36 @@ aanProtectTitle =
 #(define (engrave-event-chord event tied-in bass-pitch)
    (let* ((elements (ly:music-property event 'elements))
           (chord-notes (filter (lambda (e) (and (ly:music? e) (is-AAN-chord? e))) elements))
-          (bass-here (filter (lambda (e) (aan-bass-pitch e)) elements))
-          (local-bass (if (null? bass-here)
-                          bass-pitch
-                          (ly:music-property (first bass-here) 'pitch)))
-          (duration (get-event-chord-duration event))
-          (want-cue (and (not (null? chord-notes))
-                         (aan-root-cue? local-bass (first chord-notes))))
-          (spelled (if (null? chord-notes)
-                       #f
-                       (aan-spell-chord (first chord-notes)
-                                        (filter (lambda (e)
-                                                  (not (and (ly:music? e)
-                                                            (eq? (ly:music-property e 'name) 'NoteEvent))))
-                                                elements)
-                                        (not tied-in))))
-          (cue (if want-cue
-                   (aan-cue-note (ly:music-property (first chord-notes) 'pitch) duration)
-                   (aan-skip duration)))
-          (main (cond
-                 ((and aan-keep-bass (not (null? bass-here)) spelled)
-                  (make-music 'SimultaneousMusic
-                              'elements (list (aan-bass-only bass-here duration) spelled)))
-                 (spelled spelled)
-                 (aan-keep-bass (aan-bass-only bass-here duration))
-                 (else (make-music 'RestEvent 'duration duration)))))
-     (list main cue (and spelled (aan-event-has-tie? event)) local-bass)))
+          (bass-here (filter (lambda (e) (aan-bass-pitch e)) elements)))
+     ;; \autoBeamOff is an empty chord with a beam-forbid event and no
+     ;; duration.  Replacing it with a rest is what shifted the bar.
+     (if (and (null? chord-notes) (null? bass-here))
+         (list event (ly:music-deep-copy event) #f bass-pitch)
+         (let* ((local-bass (if (null? bass-here)
+                                bass-pitch
+                                (ly:music-property (first bass-here) 'pitch)))
+                (duration (get-event-chord-duration event))
+                (want-cue (and (not (null? chord-notes))
+                               (aan-root-cue? local-bass (first chord-notes))))
+                (spelled (if (null? chord-notes)
+                             #f
+                             (aan-spell-chord (first chord-notes)
+                                              (filter (lambda (e)
+                                                        (not (and (ly:music? e)
+                                                                  (eq? (ly:music-property e 'name) 'NoteEvent))))
+                                                      elements)
+                                              (not tied-in))))
+                (cue (if want-cue
+                         (aan-cue-note (ly:music-property (first chord-notes) 'pitch) duration)
+                         (aan-skip duration)))
+                (main (cond
+                       ((and aan-keep-bass (not (null? bass-here)) spelled)
+                        (make-music 'SimultaneousMusic
+                                    'elements (list (aan-bass-only bass-here duration) spelled)))
+                       (spelled spelled)
+                       (aan-keep-bass (aan-bass-only bass-here duration))
+                       (else (make-music 'RestEvent 'duration duration)))))
+           (list main cue (and spelled (aan-event-has-tie? event)) local-bass)))))
 
 #(define (engrave-sequential music bass-pitch)
    (let loop ((items (ly:music-property music 'elements))
