@@ -171,15 +171,25 @@ aanProtectTitle =
                                            aan-octave-up)))
                       notes))))))
 
+% Stemless "(.)" on the root's staff position, in its own voice so the
+% notehead override cannot reach the chord.  shiftOff keeps the column.
 #(define (aan-make-root-cue pitch duration)
    (let ((cue (make-music 'NoteEvent
                           'pitch (aan-at-or-below-center pitch)
-                          'duration duration
-                          'tweaks '((Stem.stencil . #f)
-                                    (Flag.stencil . #f)
-                                    (Dots.stencil . #f)
-                                    (font-size . -3)))))
-     #{ \parenthesize $cue #}))
+                          'duration duration)))
+     #{
+       \new Voice {
+         \shiftOff
+         \once \override Stem.stencil = ##f
+         \once \override Flag.stencil = ##f
+         \once \override Dots.stencil = ##f
+         \once \override NoteHead.stencil = #ly:text-interface::print
+         \once \override NoteHead.text = \markup { \fontsize #-2 "(.)" }
+         \once \override NoteColumn.ignore-collision = ##t
+         \once \override NoteColumn.force-hshift = #0
+         $cue
+       }
+     #}))
 
 #(define (aan-pitch-class pitch)
    (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch)))
