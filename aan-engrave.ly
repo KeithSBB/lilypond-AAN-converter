@@ -239,12 +239,13 @@ aanProtectTitle =
 #(define (aan-skip duration)
    (make-music 'SkipEvent 'duration duration))
 
-% Real note so staff-position and ledger lines are engraved.  The cue
-% voice omits the stem; this note is never added to the chord voice.
+% Small parenthesized notehead on the root staff position.  \parenthesize
+% centers the notehead between the parenthesis glyphs; a text period does not.
 #(define (aan-cue-note pitch duration)
-   (make-music 'NoteEvent
-               'pitch (aan-at-or-below-center pitch)
-               'duration duration))
+   (let ((note (make-music 'NoteEvent
+                           'pitch (aan-at-or-below-center pitch)
+                           'duration duration)))
+     #{ \parenthesize $note #}))
 
 #(define (aan-event-duration event)
    (let ((duration (ly:music-property event 'duration)))
@@ -439,8 +440,8 @@ aan-engrave =
            \omit Stem
            \omit Flag
            \omit Dots
-           \override NoteHead.stencil = #ly:text-interface::print
-           \override NoteHead.text = \markup { \fontsize #-2 "(.)" }
+           \override NoteHead.font-size = #-3
+           \override Parentheses.font-size = #-2
          } { \oneVoice $cue }
        >>
      #}))
