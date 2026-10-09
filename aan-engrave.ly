@@ -171,24 +171,30 @@ aanProtectTitle =
                                            aan-octave-up)))
                       notes))))))
 
-% Stemless "(.)" on the root's staff position, in its own voice so the
-% notehead override cannot reach the chord.  shiftOff keeps the column.
+% Staff position relative to the bass-clef center line.  0 is d; -4 is the bottom line.
+#(define (aan-staff-pos pitch)
+   (+ (* 7 (- (ly:pitch-octave pitch) -1))
+      (- (ly:pitch-notename pitch) 1)))
+
+% Stemless "(.)" as a text script on the chord.  It is not a rhythmic event,
+% so the bar keeps the source duration.  Ledger lines are drawn when the
+% root sits below the staff.
+#(define (aan-cue-markup pos)
+   (markup #:fontsize -2 "(.)"))
+
+% Stemless "(.)" on the root's staff position, inside the chord event.
+% Same attack as the chord, so the bar length does not change.
 #(define (aan-make-root-cue pitch duration)
    (let ((cue (make-music 'NoteEvent
                           'pitch (aan-at-or-below-center pitch)
                           'duration duration)))
      #{
-       \new Voice {
-         \shiftOff
-         \once \override Stem.stencil = ##f
-         \once \override Flag.stencil = ##f
-         \once \override Dots.stencil = ##f
-         \once \override NoteHead.stencil = #ly:text-interface::print
-         \once \override NoteHead.text = \markup { \fontsize #-2 "(.)" }
-         \once \override NoteColumn.ignore-collision = ##t
-         \once \override NoteColumn.force-hshift = #0
-         $cue
-       }
+       \tweak Stem.stencil ##f
+       \tweak Flag.stencil ##f
+       \tweak Dots.stencil ##f
+       \tweak NoteHead.stencil #ly:text-interface::print
+       \tweak NoteHead.text \markup { \fontsize #-2 "(.)" }
+       $cue
      #}))
 
 #(define (aan-pitch-class pitch)
@@ -231,16 +237,15 @@ aanProtectTitle =
                                 (aan-drop-quality extra-arts))))
           (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
-          (marks (filter ly:music? (list symbol-ev)))
-          (chord (make-music 'EventChord
-                             'elements (append elements marks)
-                             'articulations kept))
           (root (and (pair? elements) (ly:music-property (first elements) 'pitch)))
-          (dur (and (pair? elements) (ly:music-property (first elements) 'duration))))
-     (if (and root-cue? (ly:pitch? root) (ly:duration? dur))
-         (make-music 'SimultaneousMusic
-                     'elements (list chord (aan-make-root-cue root dur)))
-         chord)))
+          (dur (and (pair? elements) (ly:music-property (first elements) 'duration)))
+          (cue (and root-cue? (ly:pitch? root) (ly:duration? dur)
+                   (aan-make-root-cue root dur)))
+          (marks (filter ly:music? (list symbol-ev)))
+          (heads (filter ly:music? (cons cue elements))))
+     (make-music 'EventChord
+                 'elements (append heads marks)
+                 'articulations kept)))
 
 #(define (aan-bass-pitch event)
    (and (ly:music? event)

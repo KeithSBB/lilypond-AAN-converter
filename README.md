@@ -59,7 +59,7 @@ G diminished: `g^"d"`, `g^"dim"`, or `g^"o"`
 
 A counterbass is marked in the source as a down-text underscore, `e_"_"`. Engraving rewrites that mark to `e_"B"`. No other bass is treated as a counterbass.
 
-When the bass pitch class differs from the chord root, a stemless `(.)` is printed on that root's staff position. It shares the chord's duration and ignores note collision, so it does not add time or shift the chord. Bass notes and the cue stay on or below the bass-clef center line; spelled chord notes stay above it. A cue below the staff gets ledger lines. The row is taken from the written bass, not guessed.
+When the bass pitch class differs from the chord root, a stemless `(.)` is attached to that chord on the root's staff position. It is a text script, not a note, so it does not add time or move the barline. Bass notes and the cue stay on or below the bass-clef center line; spelled chord notes stay above it. A cue below the staff gets ledger lines. The row is taken from the written bass, not guessed.
 
 ```lilypond
 \include "aan-engrave.ly"
