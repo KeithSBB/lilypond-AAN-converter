@@ -214,9 +214,10 @@ aanProtectTitle =
      (set! (ly:music-property copy 'elements) new-elements)
      copy))
 
-% Spelled chord above the bass-clef center line.  A mismatched bass adds a
-% parenthesized root cue on or below that line, sharing the chord duration.
-#(define (aan-spell-chord note-event extra-arts emit-symbol? root-cue?)
+% Spelled chord above the bass-clef center line.  The root cue is not put
+% in this chord: a text script is an outside-staff object and cannot sit
+% on a staff line.  The cue is a note in a parallel voice.
+#(define (aan-spell-chord note-event extra-arts emit-symbol?)
    (let* ((note-arts (ly:music-property note-event 'articulations))
           (raw (aan-quality-token (append (if (pair? note-arts) note-arts '())
                                           (if (pair? extra-arts) extra-arts '()))))
@@ -230,12 +231,24 @@ aanProtectTitle =
                                 (aan-drop-quality extra-arts))))
           (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
-          (root (and (pair? elements) (ly:music-property (first elements) 'pitch)))
-          (cue-ev (and root-cue? (ly:pitch? root) (aan-make-root-cue root)))
-          (marks (filter ly:music? (list symbol-ev cue-ev))))
+          (marks (filter ly:music? (list symbol-ev))))
      (make-music 'EventChord
                  'elements (append elements marks)
                  'articulations kept)))
+
+#(define (aan-skip duration)
+   (make-music 'SkipEvent 'duration duration))
+
+% Real note so staff-position and ledger lines are engraved.  The cue
+% voice omits the stem; this note is never added to the chord voice.
+#(define (aan-cue-note pitch duration)
+   (make-music 'NoteEvent
+               'pitch (aan-at-or-below-center pitch)
+               'duration duration))
+
+#(define (aan-event-duration event)
+   (let ((duration (ly:music-property event 'duration)))
+     (if (ly:duration? duration) duration (ly:make-duration 2))))
 
 #(define (aan-bass-pitch event)
    (and (ly:music? event)
@@ -259,13 +272,21 @@ aanProtectTitle =
 #(define (engrave-note event tied-in bass-pitch)
    (cond
     ((is-AAN-chord? event)
-     (cons (aan-spell-chord event '() (not tied-in) (aan-root-cue? bass-pitch event))
-           (cons (aan-event-has-tie? event) bass-pitch)))
+     (let ((root (ly:music-property event 'pitch))
+           (duration (aan-event-duration event)))
+       (list (aan-spell-chord event '() (not tied-in))
+             (if (aan-root-cue? bass-pitch event)
+                 (aan-cue-note root duration)
+                 (aan-skip duration))
+             (aan-event-has-tie? event)
+             bass-pitch)))
     ((is-AAN-bass? event)
-     (cons (if aan-keep-bass (aan-place-bass event) (make-rest event))
-           (cons #f (ly:music-property event 'pitch))))
+     (list (if aan-keep-bass (aan-place-bass event) (make-rest event))
+           (aan-skip (aan-event-duration event))
+           #f
+           (ly:music-property event 'pitch)))
     (else
-     (cons event (cons #f bass-pitch)))))
+     (list event (ly:music-deep-copy event) #f bass-pitch))))
 
 #(define (engrave-event-chord event tied-in bass-pitch)
    (let* ((elements (ly:music-property event 'elements))
@@ -275,6 +296,8 @@ aanProtectTitle =
                           bass-pitch
                           (ly:music-property (first bass-here) 'pitch)))
           (duration (get-event-chord-duration event))
+          (want-cue (and (not (null? chord-notes))
+                         (aan-root-cue? local-bass (first chord-notes))))
           (spelled (if (null? chord-notes)
                        #f
                        (aan-spell-chord (first chord-notes)
@@ -282,37 +305,57 @@ aanProtectTitle =
                                                   (not (and (ly:music? e)
                                                             (eq? (ly:music-property e 'name) 'NoteEvent))))
                                                 elements)
-                                        (not tied-in)
-                                        (aan-root-cue? local-bass (first chord-notes))))))
-     (cond
-      ((and aan-keep-bass (not (null? bass-here)) spelled)
-       (cons (make-music 'SimultaneousMusic
-                         'elements (list (aan-bass-only bass-here duration) spelled))
-             (cons (aan-event-has-tie? event) local-bass)))
-      (spelled
-       (cons spelled (cons (aan-event-has-tie? event) local-bass)))
-      (else
-       (cons (if aan-keep-bass
-                 (aan-bass-only bass-here duration)
-                 (make-music 'RestEvent 'duration duration))
-             (cons #f local-bass))))))
+                                        (not tied-in))))
+          (cue (if want-cue
+                   (aan-cue-note (ly:music-property (first chord-notes) 'pitch) duration)
+                   (aan-skip duration)))
+          (main (cond
+                 ((and aan-keep-bass (not (null? bass-here)) spelled)
+                  (make-music 'SimultaneousMusic
+                              'elements (list (aan-bass-only bass-here duration) spelled)))
+                 (spelled spelled)
+                 (aan-keep-bass (aan-bass-only bass-here duration))
+                 (else (make-music 'RestEvent 'duration duration)))))
+     (list main cue (and spelled (aan-event-has-tie? event)) local-bass)))
 
 #(define (engrave-sequential music bass-pitch)
    (let loop ((items (ly:music-property music 'elements))
-              (acc '())
+              (main-acc '())
+              (cue-acc '())
               (tied-in #f)
               (bass bass-pitch))
      (if (null? items)
-         (cons (aan-replace-elements music (reverse acc)) (cons #f bass))
+         (list (aan-replace-elements music (reverse main-acc))
+               (aan-replace-elements music (reverse cue-acc))
+               #f
+               bass)
          (let ((step (engrave-walk (car items) tied-in bass)))
            (loop (cdr items)
-                 (cons (car step) acc)
-                 (cadr step)
-                 (cddr step))))))
+                 (cons (first step) main-acc)
+                 (cons (second step) cue-acc)
+                 (third step)
+                 (fourth step))))))
+
+#(define (engrave-copy-structure music tied-in bass-pitch)
+   (let ((main (ly:music-deep-copy music))
+         (cue (ly:music-deep-copy music))
+         (next-bass bass-pitch))
+     (let ((el (ly:music-property main 'element)))
+       (if (ly:music? el)
+           (let ((step (engrave-walk el tied-in bass-pitch)))
+             (set! (ly:music-property main 'element) (first step))
+             (set! (ly:music-property cue 'element) (second step))
+             (set! next-bass (fourth step)))))
+     (let ((els (ly:music-property main 'elements)))
+       (if (pair? els)
+           (let ((steps (map (lambda (e) (engrave-walk e #f bass-pitch)) els)))
+             (set! (ly:music-property main 'elements) (map first steps))
+             (set! (ly:music-property cue 'elements) (map second steps)))))
+     (list main cue #f next-bass)))
 
 #(define (engrave-walk music tied-in bass-pitch)
    (cond
-    ((not (ly:music? music)) (cons music (cons #f bass-pitch)))
+    ((not (ly:music? music)) (list music music #f bass-pitch))
     ((music-is-of-type? music 'note-event)
      (engrave-note music tied-in bass-pitch))
     ((music-is-of-type? music 'event-chord)
@@ -320,22 +363,9 @@ aanProtectTitle =
     ((music-is-of-type? music 'sequential-music)
      (engrave-sequential music bass-pitch))
     ((music-is-of-type? music 'simultaneous-music)
-     (cons (aan-replace-elements
-            music
-            (map (lambda (e) (car (engrave-walk e #f bass-pitch)))
-                 (ly:music-property music 'elements)))
-           (cons #f bass-pitch)))
+     (engrave-copy-structure music tied-in bass-pitch))
     (else
-     (let ((copy (ly:music-deep-copy music)))
-       (let ((el (ly:music-property copy 'element)))
-         (if (ly:music? el)
-             (set! (ly:music-property copy 'element)
-                   (car (engrave-walk el tied-in bass-pitch)))))
-       (let ((els (ly:music-property copy 'elements)))
-         (if (pair? els)
-             (set! (ly:music-property copy 'elements)
-                   (map (lambda (e) (car (engrave-walk e #f bass-pitch))) els))))
-       (cons copy (cons #f bass-pitch))))))
+     (engrave-copy-structure music tied-in bass-pitch))))
 
 % Source counterbass mark is a down-text underscore.  Engrave it as B.
 % Any other bass is left unmarked: the row is never inferred.
@@ -381,16 +411,34 @@ aan-engrave-chords =
 #(define-music-function (music) (ly:music?)
    (clear-history)
    (set! aan-keep-bass #f)
-   (car (engrave-walk music #f #f)))
+   (first (engrave-walk music #f #f)))
 
-% One bass staff: written bass notes plus spelled chords.
+% One bass staff: written bass notes plus spelled chords.  The cue voice
+% has a skip for every main-voice duration, and a stemless note only where
+% the root differs from the bass.  Equal length is what keeps the bar.
 aan-engrave =
 #(define-music-function (music) (ly:music?)
    (clear-history)
    (set! aan-keep-bass #t)
-   (let ((result (car (engrave-walk music #f #f))))
+   (let* ((step (engrave-walk music #f #f))
+          (main (aan-rewrite-counterbass (first step)))
+          (cue (second step)))
      (set! aan-keep-bass #f)
-     (aan-rewrite-counterbass result)))
+     #{
+       <<
+         \new Voice \with { \shiftOff } { $main }
+         \new Voice \with {
+           \shiftOff
+           \override NoteColumn.ignore-collision = ##t
+           \override NoteColumn.force-hshift = #0
+           \omit Stem
+           \omit Flag
+           \omit Dots
+           \override NoteHead.stencil = #ly:text-interface::print
+           \override NoteHead.text = \markup { \fontsize #-2 "(.)" }
+         } { $cue }
+       >>
+     #}))
 
 % ---------------------------------------------------------------------------
 % Text.  Chord symbols are already in the selected language and are marked

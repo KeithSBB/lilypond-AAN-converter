@@ -154,9 +154,8 @@ MIDI_Bass = \aan-extract-bass ##t \left
 
 }
 
-% Russian engraving: one treble staff and one bass staff.
-% The bass staff has the written bass notes and the spelled chords.
-% The title is a literal and is not translated.
+% Russian engraving starts on its own page.
+\pageBreak
 \aanLanguage #'russian
 RU_Left = \aan-engrave \left
 
