@@ -176,26 +176,19 @@ aanProtectTitle =
    (+ (* 7 (- (ly:pitch-octave pitch) -1))
       (- (ly:pitch-notename pitch) 1)))
 
-% Stemless "(.)" as a text script on the chord.  It is not a rhythmic event,
-% so the bar keeps the source duration.  Ledger lines are drawn when the
-% root sits below the staff.
-#(define (aan-cue-markup pos)
-   (markup #:fontsize -2 "(.)"))
-
-% Stemless "(.)" on the root's staff position, inside the chord event.
-% Same attack as the chord, so the bar length does not change.
-#(define (aan-make-root-cue pitch duration)
-   (let ((cue (make-music 'NoteEvent
-                          'pitch (aan-at-or-below-center pitch)
-                          'duration duration)))
-     #{
-       \tweak Stem.stencil ##f
-       \tweak Flag.stencil ##f
-       \tweak Dots.stencil ##f
-       \tweak NoteHead.stencil #ly:text-interface::print
-       \tweak NoteHead.text \markup { \fontsize #-2 "(.)" }
-       $cue
-     #}))
+% Stemless "(.)" attached to the chord.  A text script has no duration, so
+% the bar stays as written, and the chord stem is left alone.
+#(define (aan-make-root-cue pitch)
+   (let ((pos (aan-staff-pos (aan-at-or-below-center pitch))))
+     (make-music 'TextScriptEvent
+                 'text (markup #:fontsize -2 "(.)")
+                 'direction 0
+                 'aan-generated #t
+                 'tweaks `((outside-staff-priority . #f)
+                           (staff-padding . #f)
+                           (padding . 0)
+                           (Y-offset . ,pos)
+                           (extra-offset . (0.8 . 0))))))
 
 #(define (aan-pitch-class pitch)
    (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch)))
@@ -238,13 +231,10 @@ aanProtectTitle =
           (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
           (root (and (pair? elements) (ly:music-property (first elements) 'pitch)))
-          (dur (and (pair? elements) (ly:music-property (first elements) 'duration)))
-          (cue (and root-cue? (ly:pitch? root) (ly:duration? dur)
-                   (aan-make-root-cue root dur)))
-          (marks (filter ly:music? (list symbol-ev)))
-          (heads (filter ly:music? (cons cue elements))))
+          (cue-ev (and root-cue? (ly:pitch? root) (aan-make-root-cue root)))
+          (marks (filter ly:music? (list symbol-ev cue-ev))))
      (make-music 'EventChord
-                 'elements (append heads marks)
+                 'elements (append elements marks)
                  'articulations kept)))
 
 #(define (aan-bass-pitch event)
