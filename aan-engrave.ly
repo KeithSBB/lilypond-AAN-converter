@@ -413,32 +413,15 @@ aan-engrave-chords =
    (set! aan-keep-bass #f)
    (first (engrave-walk music #f #f)))
 
-% One bass staff: written bass notes plus spelled chords.  The cue voice
-% has a skip for every main-voice duration, and a stemless note only where
-% the root differs from the bass.  Equal length is what keeps the bar.
+% Cue marks are off while the bass and spelled-chord conversion is checked.
+% Do not add a parallel voice or a root mark.
 aan-engrave =
 #(define-music-function (music) (ly:music?)
    (clear-history)
    (set! aan-keep-bass #t)
-   (let* ((step (engrave-walk music #f #f))
-          (main (aan-rewrite-counterbass (first step)))
-          (cue (second step)))
+   (let ((main (aan-rewrite-counterbass (first (engrave-walk music #f #f)))))
      (set! aan-keep-bass #f)
-     #{
-       <<
-         \new Voice \with { \shiftOff } { $main }
-         \new Voice \with {
-           \shiftOff
-           \override NoteColumn.ignore-collision = ##t
-           \override NoteColumn.force-hshift = #0
-           \omit Stem
-           \omit Flag
-           \omit Dots
-           \override NoteHead.stencil = #ly:text-interface::print
-           \override NoteHead.text = \markup { \fontsize #-2 "(.)" }
-         } { $cue }
-       >>
-     #}))
+     main))
 
 % ---------------------------------------------------------------------------
 % Text.  Chord symbols are already in the selected language and are marked
