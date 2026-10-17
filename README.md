@@ -79,6 +79,8 @@ English symbols are lead-sheet names from the written root: `C`, `Cm`, `G7`, `Cd
 
 `\aanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. `7sus2` stays `7sus2` because it is not a Stradella row.
 
+In Russian mode the row symbol is written only on the first occurrence of a given chord (same root pitch class and quality) in a measure, and on the first occurrence of a new chord after a change. Repeated identical chords within the same measure omit the symbol. The tracking resets at each bar check (`|`).
+
 Dynamics and Italian navigation stay Italian (`f`, `p`, `fine`, `D.C.`, `rit.`). Prose passed through `\aan-text` or `\aan-translate` can still change (`Bayan` → `Баян`, `Moderato` → `Умеренно`). The song title is not translated. Write it as a literal `\header` field. If the same string also appears in the music, register it with `\aanProtectTitle`.
 
 ```lilypond
