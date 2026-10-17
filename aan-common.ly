@@ -51,9 +51,12 @@
          p
          (begin
            (log-message 'warning
-                        "aan-safe-pitch: expected Pitch, got ~a on music name ~a\n"
+                        "aan-safe-pitch: expected Pitch, got ~a on ~a\n  duration=~a  arts=~a  elements=~a\n"
                         p
-                        (and (ly:music? music) (ly:music-property music 'name)))
+                        music
+                        (ly:music-property music 'duration)
+                        (ly:music-property music 'articulations)
+                        (ly:music-property music 'elements))
            #f))))
 
 % ---------------------------------------------------------------------------
