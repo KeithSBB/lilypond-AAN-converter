@@ -30,7 +30,10 @@
 % accbasschord.ly is not applied here.
 %
 % Russian mode writes the Stradella row letter over the spelled chord (Б М 7 У)
-% and does not print a pitch name.  English mode keeps lead-sheet symbols.
+% and does not print a pitch name.  The row symbol is written only on the first
+% occurrence of a chord in a measure and on the first occurrence after a chord
+% change; repeated identical chords in the same measure omit the symbol.
+% English mode keeps lead-sheet symbols.
 % A source counterbass is e_"_" and is engraved e_"B".  The row is never inferred.
 % When the bass pitch class differs from the chord root, the chord gets _"(.)".
 % Italian dynamics and Italian navigation (f, fine, D.C.) are not translated.
@@ -42,6 +45,9 @@
 
 % 'english or 'russian.  Read when an engraving function runs.
 #(define aan-language 'english)
+
+% Last Russian chord identity in the current measure: (notename alteration quality) or #f
+#(define aan-last-ru-identity #f)
 
 % Exact title string.  Compared after trimming.  Not translated.
 #(define aan-song-title "")
@@ -107,6 +113,26 @@ aanProtectTitle =
          ((diminished) "dim")
          ((sus2-7) "7sus2")
          (else "?"))))
+
+#(define (aan-is-bar-check? music)
+   (and (ly:music? music)
+        (music-is-of-type? music 'bar-check)))
+
+#(define (aan-should-emit-symbol? note-event raw-quality tied-in)
+   (if (or tied-in (not (eq? aan-language 'russian)))
+       (not tied-in)
+       (let* ((quality (aan-resolve-quality note-event raw-quality))
+              (canonical (aan-canonical-quality quality))
+              (pitch (ly:music-property note-event 'pitch))
+              (ident (list (ly:pitch-notename pitch)
+                           (ly:pitch-alteration pitch)
+                           canonical)))
+         (if (or (not aan-last-ru-identity)
+                 (not (equal? ident aan-last-ru-identity)))
+             (begin
+               (set! aan-last-ru-identity ident)
+               #t)
+             #f))))
 
 #(define (aan-resolve-quality note-event raw)
    (if (equal? raw "unknown")
@@ -217,7 +243,7 @@ aanProtectTitle =
 % Spelled chord above the bass-clef center line.  The root cue is not put
 % in this chord: a text script is an outside-staff object and cannot sit
 % on a staff line.  The cue is a note in a parallel voice.
-#(define (aan-spell-chord note-event extra-arts emit-symbol?)
+#(define (aan-spell-chord note-event extra-arts tied-in)
    (let* ((note-arts (ly:music-property note-event 'articulations))
           (raw (aan-quality-token (append (if (pair? note-arts) note-arts '())
                                           (if (pair? extra-arts) extra-arts '()))))
@@ -229,7 +255,8 @@ aanProtectTitle =
                                           '(NoteEvent RestEvent SkipEvent)))))
                         (append (aan-drop-quality note-arts)
                                 (aan-drop-quality extra-arts))))
-          (symbol (and emit-symbol? (aan-format-chord-symbol note-event raw)))
+          (emit? (aan-should-emit-symbol? note-event raw tied-in))
+          (symbol (and emit? (aan-format-chord-symbol note-event raw)))
           (symbol-ev (if symbol (aan-make-symbol-event symbol) #f))
           (marks (filter ly:music? (list symbol-ev))))
      (make-music 'EventChord
@@ -275,7 +302,7 @@ aanProtectTitle =
     ((is-AAN-chord? event)
      (let ((root (ly:music-property event 'pitch))
            (duration (aan-event-duration event)))
-       (list (aan-spell-chord event '() (not tied-in))
+       (list (aan-spell-chord event '() tied-in)
              (if (aan-root-cue? bass-pitch event)
                  (aan-cue-note root duration)
                  (aan-skip duration))
@@ -310,7 +337,7 @@ aanProtectTitle =
                                                         (not (and (ly:music? e)
                                                                   (eq? (ly:music-property e 'name) 'NoteEvent))))
                                                       elements)
-                                              (not tied-in))))
+                                              tied-in)))
                 (cue (if want-cue
                          (aan-cue-note (ly:music-property (first chord-notes) 'pitch) duration)
                          (aan-skip duration)))
@@ -334,12 +361,15 @@ aanProtectTitle =
                (aan-replace-elements music (reverse cue-acc))
                #f
                bass)
-         (let ((step (engrave-walk (car items) tied-in bass)))
-           (loop (cdr items)
-                 (cons (first step) main-acc)
-                 (cons (second step) cue-acc)
-                 (third step)
-                 (fourth step))))))
+         (let ((item (car items)))
+           (if (aan-is-bar-check? item)
+               (set! aan-last-ru-identity #f))
+           (let ((step (engrave-walk item tied-in bass)))
+             (loop (cdr items)
+                   (cons (first step) main-acc)
+                   (cons (second step) cue-acc)
+                   (third step)
+                   (fourth step)))))))
 
 #(define (engrave-copy-structure music tied-in bass-pitch)
    (let ((main (ly:music-deep-copy music))
@@ -415,6 +445,7 @@ aan-engrave-bass =
 aan-engrave-chords =
 #(define-music-function (music) (ly:music?)
    (clear-history)
+   (set! aan-last-ru-identity #f)
    (set! aan-keep-bass #f)
    (first (engrave-walk music #f #f)))
 
@@ -425,6 +456,7 @@ aan-engrave-chords =
 aan-engrave =
 #(define-music-function (music) (ly:music?)
    (clear-history)
+   (set! aan-last-ru-identity #f)
    (set! aan-keep-bass #t)
    (let* ((step (engrave-walk music #f #f))
           (main (aan-rewrite-counterbass (first step)))
@@ -463,15 +495,43 @@ aan-engrave =
      ("Chords" . "Аккорды")
      ("Chord" . "Аккорд")
      ("Composed by Keith Smith" . "Сочинение: Кит Смит")
-     ("Keith Smith" . "Кит Смит")
      ("Moderato" . "Умеренно")
-     ("moderato" . "Умеренно")
-     ("Copyright" . "Авторское право")))
+     ("Allegro" . "Аллегро")
+     ("Andante" . "Анданте")
+     ("Adagio" . "Адажио")
+     ("Largo" . "Ларго")
+     ("Presto" . "Престо")
+     ("Vivace" . "Виваче")
+     ("Tempo" . "Темп")
+     ("Introduction" . "Вступление")
+     ("Verse" . "Куплет")
+     ("Chorus" . "Припев")
+     ("Bridge" . "Бридж")
+     ("Ending" . "Концовка")
+     ("Fine" . "Фине")
+     ("Coda" . "Кода")
+     ("Repeat" . "Повтор")
+     ("D.C." . "Д. К.")
+     ("D.S." . "Д. С.")
+     ("al fine" . "аль фине")
+     ("a tempo" . "а темпо")
+     ("rit." . "рит.")
+     ("ritard." . "ритард.")
+     ("accel." . "акцел.")
+     ("cresc." . "креш.")
+     ("dim." . "дим.")
+     ("sfz" . "сфц")
+     ("fp" . "фп")
+     ("pp" . "пп")
+     ("p" . "п")
+     ("mp" . "мп")
+     ("mf" . "мф")
+     ("f" . "ф")
+     ("ff" . "фф")
+     ("fff" . "ффф")))
 
 #(define (aan-title-exception? text)
-   (or (and (string? aan-song-title)
-            (> (string-length aan-song-title) 0)
-            (string=? text aan-song-title))
+   (or (and (string? text) (string=? text aan-song-title))
        (any (lambda (title) (and (string? title) (string=? text title)))
             aan-protected-titles)))
 
