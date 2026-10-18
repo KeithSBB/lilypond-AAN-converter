@@ -94,7 +94,6 @@ aanProtectTitle =
     ((member raw '("m" "min")) 'minor)
     ((and (string? raw) (string=? raw "7")) 'dominant)
     ((member raw '("dim" "d" "o")) 'diminished)
-    ((and (string? raw) (string=? raw "7sus2")) 'sus2-7)
     (else 'unknown)))
 
 #(define (aan-quality-suffix canonical language)
@@ -104,14 +103,12 @@ aanProtectTitle =
          ((minor) "М")
          ((dominant) "7")
          ((diminished) "У")
-         ((sus2-7) "7sus2")
          (else "?"))
        (case canonical
          ((major) "")
          ((minor) "m")
          ((dominant) "7")
          ((diminished) "dim")
-         ((sus2-7) "7sus2")
          (else "?"))))
 
 #(define (aan-is-bar-check? music)
@@ -605,3 +602,4 @@ aan-translate =
 aan-text =
 #(define-scheme-function (str) (string?)
    (markup (aan-translate-string str)))
+
