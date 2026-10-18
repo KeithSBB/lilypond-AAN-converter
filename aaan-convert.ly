@@ -17,9 +17,8 @@
 %  available  at
 %  http://www.gnu.org/licenses/gpl-3.0.html
 %
-% Public include.  Pulls in the engraving converter, which includes the
-% MIDI converter and the shared American Accordion Notation (AAAN / AAA)
-% tables.  One include provides every function those files define.
+% Public include.  One file provides \aaan-convert, the extractors, and
+% \aaan-text.  Language is \aaanLanguage #'english (the default) or #'russian.
 
 \version "2.24.4"
 
