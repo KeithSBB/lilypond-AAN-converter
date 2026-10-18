@@ -113,7 +113,8 @@ aanProtectTitle =
 
 #(define (aan-is-bar-check? music)
    (and (ly:music? music)
-        (music-is-of-type? music 'bar-check)))
+        (or (music-is-of-type? music 'bar-check)
+            (eq? (ly:music-property music 'name) 'BarCheck))))
 
 #(define (aan-should-emit-symbol? note-event raw-quality tied-in)
    (if (or tied-in (not (eq? aan-language 'russian)))
@@ -393,6 +394,13 @@ aanProtectTitle =
      (list main cue #f next-bass)))
 
 #(define (engrave-walk music tied-in bass-pitch)
+   ;; Reset the Russian chord identity at every bar check, whatever
+   ;; structure contains it.  engrave-sequential also resets, but
+   ;; repeats, alternatives, and other wrappers walk their children
+   ;; through engrave-copy-structure and would otherwise keep the
+   ;; previous measure's identity.
+   (if (aan-is-bar-check? music)
+       (set! aan-last-ru-identity #f))
    (cond
     ((not (ly:music? music)) (list music music #f bass-pitch))
     ((music-is-of-type? music 'note-event)
