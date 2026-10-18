@@ -1,7 +1,7 @@
 %
 % Copyright (C) 2025-2026
 % Author: Keith Smith <keith@santabayanian.com>
-% aan-common.ly
+% aaan-common.ly
 % https://github.com/KeithSBB/lilypond-AAN-converter
 %
 %  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
 %  available  at
 %  http://www.gnu.org/licenses/gpl-3.0.html
 %
-% Shared American Accordion Notation (AAN / AAA) tables and pure helpers.
-% Included by accbasschord.ly (MIDI) and aan-engrave.ly (print).
+% Shared American Accordion Notation (AAAN / AAA) tables and pure helpers.
+% Included by accbasschord.ly (MIDI) and aaan-engrave.ly (print).
 % No staccato policy lives here: MIDI may add it, engraving must not.
 % Pitch accessors are guarded so a missing pitch logs a warning instead of crashing.
 
@@ -45,13 +45,13 @@
                (newline)))))))
 
 % Safe pitch helpers — log and return a sentinel instead of crashing
-#(define (aan-safe-pitch music)
+#(define (aaan-safe-pitch music)
    (let ((p (ly:music-property music 'pitch)))
      (if (ly:pitch? p)
          p
          (begin
            (log-message 'warning
-                        "aan-safe-pitch: expected Pitch, got ~a on ~a\n  duration=~a  arts=~a  elements=~a\n"
+                        "aaan-safe-pitch: expected Pitch, got ~a on ~a\n  duration=~a  arts=~a  elements=~a\n"
                         p
                         music
                         (ly:music-property music 'duration)
@@ -60,30 +60,30 @@
            #f))))
 
 % ---------------------------------------------------------------------------
-% Stradella qualities.  Keys are the AAN text tokens accepted on a chord note.
+% Stradella qualities.  Keys are the AAAN text tokens accepted on a chord note.
 % 7sus2 is not a Stradella row.  A quality token of exactly "7sus2" is an error.
 % Parenthetical annotations such as ^"(Re7sus2)" are plain text and are left alone.
 % ---------------------------------------------------------------------------
 
-#(define aan-chord-intvl-table (make-hash-table))
-#(define aan-major-intvls (list 4 7))
-#(define aan-minor-intvls (list 3 7))
-#(define aan-sevth-intvls (list 4 10))
-#(define aan-dim-intvls (list 3 9))
+#(define aaan-chord-intvl-table (make-hash-table))
+#(define aaan-major-intvls (list 4 7))
+#(define aaan-minor-intvls (list 3 7))
+#(define aaan-sevth-intvls (list 4 10))
+#(define aaan-dim-intvls (list 3 9))
 
-#(hash-set! aan-chord-intvl-table "M" aan-major-intvls)
-#(hash-set! aan-chord-intvl-table "maj" aan-major-intvls)
-#(hash-set! aan-chord-intvl-table "m" aan-minor-intvls)
-#(hash-set! aan-chord-intvl-table "min" aan-minor-intvls)
-#(hash-set! aan-chord-intvl-table "7" aan-sevth-intvls)
-#(hash-set! aan-chord-intvl-table "dim" aan-dim-intvls)
-#(hash-set! aan-chord-intvl-table "d" aan-dim-intvls)
-#(hash-set! aan-chord-intvl-table "o" aan-dim-intvls)
+#(hash-set! aaan-chord-intvl-table "M" aaan-major-intvls)
+#(hash-set! aaan-chord-intvl-table "maj" aaan-major-intvls)
+#(hash-set! aaan-chord-intvl-table "m" aaan-minor-intvls)
+#(hash-set! aaan-chord-intvl-table "min" aaan-minor-intvls)
+#(hash-set! aaan-chord-intvl-table "7" aaan-sevth-intvls)
+#(hash-set! aaan-chord-intvl-table "dim" aaan-dim-intvls)
+#(hash-set! aaan-chord-intvl-table "d" aaan-dim-intvls)
+#(hash-set! aaan-chord-intvl-table "o" aaan-dim-intvls)
 
-#(define chord-intvl-table aan-chord-intvl-table)
+#(define chord-intvl-table aaan-chord-intvl-table)
 
 #(define chord-keys
-   (map car (hash-map->list (lambda (key value) (cons key value)) aan-chord-intvl-table)))
+   (map car (hash-map->list (lambda (key value) (cons key value)) aaan-chord-intvl-table)))
 
 % chord-history: ((pitch-notename pitch-alteration) . chord-name)
 % A omitted quality reuses the last quality for that pitch class.
@@ -92,7 +92,7 @@
 
 #(define (search-history note-event)
    (log-message 'debug "search-history:  entered\n")
-   (let ((pitch (aan-safe-pitch note-event)))
+   (let ((pitch (aaan-safe-pitch note-event)))
      (if (not pitch)
          '()
          (let ((note-alt (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
@@ -105,7 +105,7 @@
 
 #(define (save-update-history note-event chord-name)
    (log-message 'debug "save-update-history:  entered\n")
-   (let ((pitch (aan-safe-pitch note-event)))
+   (let ((pitch (aaan-safe-pitch note-event)))
      (if pitch
          (let ((note-alt (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
            (let ((item (assoc note-alt chord-history)))
@@ -149,7 +149,7 @@
                           (any (lambda (x) (string=? text x)) chord-keys))))
                  articulations))))
 
-#(define (aan-quality-token articulations)
+#(define (aaan-quality-token articulations)
    ;; 7sus2 is not a Stradella row.  Reject it as a quality token.
    ;; Parenthetical text such as "(Re7sus2)" is not equal to "7sus2" and is left alone.
    (for-each
@@ -158,7 +158,7 @@
                (eq? (ly:music-property a 'name) 'TextScriptEvent)
                (equal? (ly:music-property a 'direction) 1)
                (equal? (ly:music-property a 'text) "7sus2"))
-          (error "aan-quality-token: \"7sus2\" is not a Stradella row. Use M, m, 7, or dim, and put any 7sus2 annotation in parentheses.")))
+          (error "aaan-quality-token: \"7sus2\" is not a Stradella row. Use M, m, 7, or dim, and put any 7sus2 annotation in parentheses.")))
     (if (pair? articulations) articulations '()))
    (let ((filtered (filter-for-chord-names articulations)))
      (if (null? filtered)
@@ -194,7 +194,7 @@
          (if (null? chord-name)
              (error "note-event-to-chord-elements: Undefined chord note and no prior useage")
              (log-message 'debug "note-event-to-chord-elements: Chord was not defined, but its history was found: ~a\n" chord-name))))
-   (let ((root-pitch (aan-safe-pitch note-event)))
+   (let ((root-pitch (aaan-safe-pitch note-event)))
      (if (not root-pitch)
          (begin
            (log-message 'warning "note-event-to-chord-elements: no pitch; returning empty\n")
@@ -203,7 +203,7 @@
                 (root-alteration (ly:pitch-alteration root-pitch))
                 (chord-root-pitch (ly:make-pitch -1 root-notename root-alteration))
                 (dur (ly:music-property note-event 'duration))
-                (semitone-list (hash-ref aan-chord-intvl-table chord-name))
+                (semitone-list (hash-ref aaan-chord-intvl-table chord-name))
                 (pitches (cons chord-root-pitch
                                (map (lambda (semitone)
                                       (make-pitch-from-refpitch&semitone root-pitch semitone))
@@ -219,29 +219,29 @@
 % Middle line of the bass staff is D3.  C#3 and lower are bass-row notes.
 % Db3 (same semitone count as C#3, written as a flat) stays on the chord side
 % of the original test, so the alteration check is preserved.
-% AAN writes the bass in the comma octave and the chord row in the
+% AAAN writes the bass in the comma octave and the chord row in the
 % octave above.  Middle C is the split: a note below it is a bass button,
 % a note at or above it is a chord button.  The old -11 threshold sat at
 % C-sharp below the staff, so a, e, g, and d, were all spelled as chords
 % and the bass attack vanished.
-#(define aan-bass-split 0)
+#(define aaan-bass-split 0)
 
-#(define (is-AAN-chord? note-event)
+#(define (is-AAAN-chord? note-event)
    (and (ly:music? note-event)
         (begin
-          (log-message 'debug "is-AAN-chord?: Entered ~a\n"
+          (log-message 'debug "is-AAAN-chord?: Entered ~a\n"
                        (ly:music-property note-event 'name))
           (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
-               (let ((pitch (aan-safe-pitch note-event)))
-                 (and pitch (>= (ly:pitch-semitones pitch) aan-bass-split)))))))
+               (let ((pitch (aaan-safe-pitch note-event)))
+                 (and pitch (>= (ly:pitch-semitones pitch) aaan-bass-split)))))))
 
-#(define (is-AAN-bass? note-event)
+#(define (is-AAAN-bass? note-event)
    (and (ly:music? note-event)
         (begin
-          (log-message 'debug "is-AAN-bass?: Entered \n")
+          (log-message 'debug "is-AAAN-bass?: Entered \n")
           (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
-               (let ((pitch (aan-safe-pitch note-event)))
-                 (and pitch (< (ly:pitch-semitones pitch) aan-bass-split)))))))
+               (let ((pitch (aaan-safe-pitch note-event)))
+                 (and pitch (< (ly:pitch-semitones pitch) aaan-bass-split)))))))
 
 #(define (make-rest note-event)
    (log-message 'debug "make-rest: Make Rest\n")
@@ -251,7 +251,7 @@
                                duration
                                (ly:make-duration 2 0)))))
 
-#(define (aan-event-has-tie? music)
+#(define (aaan-event-has-tie? music)
    (let* ((arts (ly:music-property music 'articulations))
           (elems (filter ly:music? (ly:music-property music 'elements)))
           (all (append (if (pair? arts) arts '()) elems)))

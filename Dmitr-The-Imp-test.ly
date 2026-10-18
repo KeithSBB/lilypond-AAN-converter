@@ -1,6 +1,6 @@
 \version "2.24.0"
 \include "articulate.ly"
-\include "accbasschord.ly"
+\include "aaan-convert.ly"
 #(use-modules (lily accreg))
 
 % Define a variable to hold the formatted date:
@@ -138,8 +138,8 @@ fis,4 fis^"m" cis, fis|cis,4 cis'^"7" gis, cis |fis,4 fis^"m" cis, fis|fis,4 fis
 
 }
 
-MIDI_Chords = \aan-extract-chords ##t \left
-MIDI_Bass = \aan-extract-bass ##t \left
+MIDI_Chords = \aaan-extract-chords ##t \left
+MIDI_Bass = \aaan-extract-bass ##t \left
 
 
 \score {
@@ -147,9 +147,9 @@ MIDI_Bass = \aan-extract-bass ##t \left
 
   } <<
     \new Staff = "Treble"  \right
-    \new Staff = "AAN" \with {
-        instrumentName = "AAN"
-        shortInstrumentName = "AAN"
+    \new Staff = "AAAN" \with {
+        instrumentName = "AAAN"
+        shortInstrumentName = "AAAN"
       }  { \clef bass \left }
     \new Staff = "chords" \with {
         instrumentName = "Chords"

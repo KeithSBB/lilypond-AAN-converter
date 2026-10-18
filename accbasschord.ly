@@ -17,22 +17,22 @@
 %  available  at
 %  http://www.gnu.org/licenses/gpl-3.0.html
 %
-% MIDI converter.  American Accordion Notation (AAN, also called AAA) to a
+% MIDI converter.  American Accordion Notation (AAAN, also called AAA) to a
 % bass-note voice and fully spelled Stradella chords.
 %
-%        \aan-extract-bass [staccato] { ... AAN music ... }
-%        \aan-extract-chords [staccato] { ... AAN music ... }
+%        \aaan-extract-bass [staccato] { ... AAAN music ... }
+%        \aaan-extract-chords [staccato] { ... AAAN music ... }
 %
 % The optional staccato switch is MIDI-only.  Accordion left-hand playing
 % often defaults to staccato, and ##t applies that to the generated voices.
-% Engraving must not use this switch; see aan-engrave.ly, which keeps only
+% Engraving must not use this switch; see aaan-engrave.ly, which keeps only
 % the articulations written in the source.
 %
-% Shared tables and spelling live in aan-common.ly.
+% Shared tables and spelling live in aaan-common.ly.
 
 \version "2.24.4"
 
-\include "aan-common.ly"
+\include "aaan-common.ly"
 
 #(define make-staccato #f)
 
@@ -79,7 +79,7 @@
            (log-message 'debug "create-chord-from-note: result: ~a\n" newchord)
            newchord)))))
 
-% Replace an AAN EventChord (bass note + chord note, quality on the chord)
+% Replace an AAAN EventChord (bass note + chord note, quality on the chord)
 % with a spelled chord.  A chord with no chord-row note becomes a rest.
 #(define (create-chord-from-chord eventchord)
    (log-message 'debug "create-chord-from-chord: Entered\n ~a\n" eventchord)
@@ -90,7 +90,7 @@
        (log-message 'debug "create-chord-from-chord: filtered:\n ~a\n" filtered)
        (let* ((chord-name (if (null? filtered) "unknown" (ly:music-property (first filtered) 'text)))
               (note-elements (filter (lambda (event)
-                                       (and (ly:music? event) (is-AAN-chord? event)))
+                                       (and (ly:music? event) (is-AAAN-chord? event)))
                                      (event-chord-notes eventchord)))
               (new-elements (apply append
                                    (map (lambda (note-event)
@@ -158,7 +158,7 @@ addStacc = #(define-music-function (music) (ly:music?)
       (lambda (event)
         (cond
          ((and (ly:music? event) (music-is-of-type? event 'note-event))
-          (if (is-AAN-chord? event)
+          (if (is-AAAN-chord? event)
               (create-chord-from-note event)
               (make-rest event)))
          ((music-is-of-type? event 'event-chord)
@@ -168,8 +168,8 @@ addStacc = #(define-music-function (music) (ly:music?)
          (else event)))
       new-music)))
 
-aan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
-                        (log-message 'debug "\\aan-extract-chords: Entered\n=================================\n")
+aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
+                        (log-message 'debug "\\aaan-extract-chords: Entered\n=================================\n")
                         (clear-history)
                         (if (boolean? staccato)
                             (set! make-staccato staccato)
@@ -182,7 +182,7 @@ aan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:
    (log-message 'debug "process-chords-for-bass: Entered")
    (let* ((duration (get-event-chord-duration chord))
           (elements (ly:music-property chord 'elements))
-          (filtered (filter (lambda (event) (is-AAN-bass? event)) elements)))
+          (filtered (filter (lambda (event) (is-AAAN-bass? event)) elements)))
      (cond ((equal? (length filtered) 0) (make-music 'RestEvent 'duration duration))
            ((equal? (length filtered) 1) (first filtered))
            ((> (length filtered) 1)
@@ -196,10 +196,10 @@ aan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:
      (music-selective-map should-skip-descend_into?
       (lambda (event)
         (cond
-         ((and (ly:music? event) (is-AAN-chord? event))
+         ((and (ly:music? event) (is-AAAN-chord? event))
           (make-rest event))
          ((music-is-of-type? event 'note-event)
-          (if (is-AAN-bass? event)
+          (if (is-AAAN-bass? event)
               event
               (make-rest event)))
          ((music-is-of-type? event 'event-chord)
@@ -210,8 +210,8 @@ aan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:
       new-music)
      (maybe-staccato new-music)))
 
-aan-extract-bass = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
-                      (log-message 'debug "\\aan-extract-bass: Entering\n====================================\n")
+aaan-extract-bass = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
+                      (log-message 'debug "\\aaan-extract-bass: Entering\n====================================\n")
                       (log-message 'debug "Staccato input is ~a\n" staccato)
                       (if (boolean? staccato)
                           (set! make-staccato staccato)
