@@ -14,7 +14,7 @@ One include:
 |\aaan-extract-bass| Extracts bass notes from **AAAN** leaving rests for chords|
 |\aaan-extract-chords| Extracts **AAAN** chords, spells them out using lilypond chord (<>), and leaves rests for bass notes|
 |\aaan-convert| Replaces **AAAN** chord notes with fully spelled out chords.  Bass notes are passed through.  If \aaanLanguage #'russian is set then replaces chord symbols with russian equivalent and adds cue marks.|
-|\aaan-text| If \aaanLanguage #'russian then text converted to Russian, otherwise text is passed through unaltered|
+|\aaan-text| If \aaanLanguage #'russian then words in the translation table are replaced by their Russian equivalents and other text is left as written, otherwise text is passed through unaltered|
 
 **Example**
 ```lilypond
@@ -89,13 +89,14 @@ Except for the copyright, translation can be a simple text look-up:
 | --- | --- |
 |Bayan|Баян|
 |Composed by Keith Smith|Музыка: Кит Смит|
+|Moderato|Умеренно|
 |Intro|Вступление|
 |[*any additional common terms*]|[*Russian equivalents*]|
 |Copyright  2026-10-1 "Keith Smith"|© Кит Смит, 2026|
 
 **Note:** the year and the rights holder are kept in the copyright translation.
 
-Italian dynamics, navigation, and tempo words are never translated (`f`, `p`, `fine`, `D.C.`, `rit.`). Prose passed through `\aaan-text` can still change (`Bayan` → `Баян`, `Intro` → `Вступление`). 
+Italian dynamics and navigation marks (`f`, `p`, `fine`, `D.C.`, `rit.`) are never translated, and tempo words are never transliterated (no `Аллегро`/`Модерато`). Words passed through `\aaan-text` may be replaced by a real Russian equivalent from the table (e.g. `Moderato` → `Умеренно`, `Bayan` → `Баян`). 
 ```lilypond
 \include "aaan-convert.ly"
 
