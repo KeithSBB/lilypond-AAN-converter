@@ -28,7 +28,6 @@ Notes on or below C♯3 (below the middle line of the bass staff) are bass-row n
 * 7: root, major 3rd, minor 7th (the 5th is omitted)
 * dim: root, minor 3rd, diminished 7th
 * An augmented sonority is a 7 chord with the augmented 5th in the bass
-* `7sus2` is accepted (root, 2nd, 5th, minor 7th) but is not a Stradella row
 
 A omitted quality reuses the last quality written for that pitch class.
 
@@ -73,11 +72,11 @@ When the bass pitch class differs from the chord root, a small parenthesized not
 }
 ```
 
-English symbols are lead-sheet names from the written root: `C`, `Cm`, `G7`, `Cdim`, `C7sus2`. Flats and sharps follow the AAN spelling (`ees^"M"` is `Eb`).
+English symbols are lead-sheet names from the written root: `C`, `Cm`, `G7`, `Cdim`. Flats and sharps follow the AAN spelling (`ees^"M"` is `Eb`).
 
 ### Russian text, title excepted
 
-`\aanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. `7sus2` stays `7sus2` because it is not a Stradella row.
+`\aanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. `7sus2` is not a Stradella row; using it as a quality token is an error.
 
 In Russian mode the row symbol is written only on the first occurrence of a given chord (same root pitch class and quality) in a measure, and on the first occurrence of a new chord after a change. Repeated identical chords within the same measure omit the symbol. The tracking resets at each bar check (`|`).
 
