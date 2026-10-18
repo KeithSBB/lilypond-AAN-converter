@@ -46,7 +46,7 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
        with \with-url #"http://lilypond.org/"
        \line { LilyPond \simple #(lilypond-version) \title }
        }
-    copyright = \aaan-text "Copyright  2023 \"Keith Smith\""
+    copyright = \aaan-text "Copyright 2026-10-1 \"Keith Smith\""
 }
 
 global = {

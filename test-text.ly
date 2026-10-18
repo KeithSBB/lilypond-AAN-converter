@@ -48,7 +48,7 @@
      ("Chorus" . "Припев")
      ("Variation" . "Вариация")
      ("Instrumental break" . "Отыгрыш")
-     ("Arranged by Keith Smith" . "«Обработка К. Смита»")))
+     ("Arranged by Keith Smith" . "Обработка К. Смита")))
 
 #(define (aaan-cyrillic-letter? char)
    (and (char>=? char #\x0400) (char<=? char #\x04FF)))

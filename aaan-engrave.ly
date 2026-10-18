@@ -553,7 +553,7 @@ aaan-engrave-chords =
      ("Chorus" . "Припев")
      ("Variation" . "Вариация")
      ("Instrumental break" . "Отыгрыш")
-     ("Arranged by Keith Smith" . "«Обработка К. Смита»")))
+     ("Arranged by Keith Smith" . "Обработка К. Смита")))
 
 #(define (aaan-ascii-digit? char)
    (and (char<=? #\0 char) (char<=? char #\9)))
