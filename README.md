@@ -90,14 +90,37 @@ Except for the copyright, translation can be a simple text look-up:
 | --- | --- |
 |Bayan|Баян|
 |Composed by Keith Smith|К. Смит|
-|Moderato|Умеренно|
+|Moderately|Умеренно|
 |Intro|Вступление|
-|[*any additional common terms*]|[*Russian equivalents*]|
+|Slowly|Медленно|
+|Unhurried|Не спеша|
+|Leisurely|Неторопливо|
+|Moderately fast|Умеренно скоро|
+|Lively|Живо|
+|With motion|Подвижно|
+|Animated|Оживлённо|
+|Brisk|Живо|
+|Fast|Быстро|
+|Very fast|Очень быстро|
+|Calmly|Спокойно|
+|Broadly|Широко|
+|Merrily|Весело|
+|Cheerfully|Бодро|
+|With restraint|Сдержанно|
+|Singing|Певуче|
+|Melodiously|Напевно|
+|March tempo|В темпе марша|
+|Waltz tempo|В темпе вальса|
+|Chorus|Припев|
+|Variation|Вариация|
+|Instrumental break|Отыгрыш|
+|Arranged by Keith Smith|Обработка К. Смита|
+|Bass|Бас|
 |Copyright  2026-10-1 "Keith Smith"|© Кит Смит, 2026|
 
-**Note:** the year and the rights holder are kept in the copyright translation.
+**Note:** the copyright line translates only for Keith Smith (© Кит Смит, <year>).
 
-Italian dynamics and navigation marks (`f`, `p`, `fine`, `D.C.`, `rit.`) are never translated, and tempo words are never transliterated (no `Аллегро`/`Модерато`). Words passed through `\aaan-text` may be replaced by a real Russian equivalent from the table (e.g. `Moderato` → `Умеренно`, `Bayan` → `Баян`). 
+Italian dynamics and navigation marks (`f`, `p`, `fine`, `D.C.`, `rit.`) are never translated, and tempo words are never transliterated (no `Аллегро`/`Модерато`). Italian terms like Moderato pass through unchanged. Words passed through `\aaan-text` may be replaced by a real Russian equivalent from the table (e.g. `Moderately` → `Умеренно`, `Bayan` → `Баян`). 
 ```lilypond
 \include "aaan-convert.ly"
 
