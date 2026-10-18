@@ -80,7 +80,7 @@ Accordion chords are always three notes
 - **Counterbass:** `\aaan-convert` prints the source `_"_"` as the Cyrillic «В» (U+0412) under the bass note, never Latin B. English mode passes `_"_"` through unchanged.
 - **Cue:** a small parenthesized root notehead under the chord, at zero duration (it takes no time, does not change the rhythm, and is silent in MIDI). Its pitch is the root at the nearest step below the middle line D, so C, C# and Cb sit at `c` and every other root at the comma octave.
 - **When a cue appears:** on the first chord of a run, unless that chord's root bass was just played, meaning the root as a fundamental bass (not a counterbass) either immediately before with no rest between or inside the same `<>`.
-- **Run:** consecutive chords with the same button, meaning the same root (enharmonics like C# and Db are the same) and the same type. Bar lines and ties do not break a run. A run is broken by a different chord, a separate bass note (fundamental or counterbass), a rest, a skip or full-bar rest, or the end of a simultaneous `<< >>` block. A bass note inside the same chord, like the `e,` in `<e, a>`, does not break the run. If that chord starts a run, it is cued unless the bass is its root.
+- **Run:** consecutive chords with the same button, meaning the same root (enharmonics like C# and Db are the same) and the same type. Bar lines and ties do not break a run. A run is broken by a different chord, a separate bass note (fundamental or counterbass), a rest, a skip or full-bar rest, or the end of a simultaneous `<< >>` block. A bass note inside the same chord, like the `e,` in `<e, a>`, does not break the run. If that chord starts a run, it is cued unless the bass is its root as a fundamental bass (not a counterbass). At the start of a `<< >>` block each voice continues the run and root-bass state from before the block.
 - **Example:** absolute pitches, input `c,4 c'4^"M" c'4 r4 | c'4 c'4 e,4_"_" c'4`. Russian output: **Б** only on bar 1 beat 2 (the one source mark), no cue on chord 1 (its root bass was just played), no cue on chord 2 (not first in its run), a cue on bar 2 beat 1 (the rest broke the run), none on beat 2, В under `e,`, and a cue on beat 4.
 
 **\aaan-text**
@@ -116,9 +116,10 @@ Except for the copyright, translation can be a simple text look-up:
 |Instrumental break|Отыгрыш|
 |Arranged by Keith Smith|Обработка К. Смита|
 |Bass|Бас|
+|Copyright 2026-10-1 "Keith Smith"|© Кит Смит, 2026|
 |Copyright 2026 Keith Smith|© Кит Смит, 2026|
 
-**Note:** the words Keith Smith plus a standalone 4-digit year, optionally led by "Copyright", print © Кит Смит, <year>. Any other form (e.g. "Copyright (c) 2026 Keith Smith" or another holder) passes through unchanged.
+**Note:** The year is the first 4-digit number not touching other digits, so in a date or a range the first year wins. Quotes and punctuation are ignored, and the only words allowed are Keith Smith, optionally led by Copyright. Such a line prints © Кит Смит, <year>. Anything else (another holder, extra words such as (c), or no year) passes through unchanged.
 
 Italian dynamics and navigation marks (`f`, `p`, `fine`, `D.C.`, `rit.`) are never translated, and Italian terms like Moderato are never transliterated and pass through unchanged (no `Аллегро`/`Модерато`). Words passed through `\aaan-text` may be replaced by a real Russian equivalent from the table (e.g. `Moderately` → `Умеренно`, `Bayan` → `Баян`). 
 ```lilypond
