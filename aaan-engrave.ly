@@ -520,8 +520,9 @@ aaan-engrave-chords =
 % table, pass through unchanged.  Italian dynamics and navigation are not
 % table entries, so they stay Italian.
 %
-% Copyright is the one non-lookup case: the first 4-digit year in the
-% string is kept when the rights holder is Keith Smith.
+% Copyright is the one non-lookup case.  It translates only when the only
+% words are [Copyright] Keith Smith; the year is the first 4-digit number
+% not touching other digits; quotes and punctuation are ignored.
 % ---------------------------------------------------------------------------
 
 #(define aaan-text-dictionary
