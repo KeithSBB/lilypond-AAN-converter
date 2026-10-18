@@ -9,10 +9,13 @@
 % a,_"_" a^"M" is a chord after a counterbass.
 % f^"M" f f^"M" is one run: the cue belongs only on the first.
 % g is unmarked the first time, so it is major.
+% cis is below the middle line, so it stays a bass note.
+% des is on that line, so it is a chord and stays on the line.
 sample = \absolute {
   <e, a>4^"M" a4 a4^"m" e4^"7" b4^"dim" d4^"M" c'4^"M"
   a,4 a4^"M" a,4_"_" a4^"M"
   f4^"M" f4 f4^"M" g4
+  cis4 des4^"M"
   c,4-> r4
 }
 
@@ -146,10 +149,10 @@ sample = \absolute {
      hits))
 
 #(define expected-english
-   "<e, a cis' e'>4^\"M\" <a cis' e'>4 <a c' e'>4^\"m\" <e gis d'>4^\"7\" <b d' f'>4^\"dim\" <d fis a>4^\"M\" <e g c'>4^\"M\" a,4 <a cis' e'>4^\"M\" a,4_\"_\" <a cis' e'>4^\"M\" <f a c'>4^\"M\" <f a c'>4 <f a c'>4^\"M\" <g b d'>4 c,4-> r4")
+   "<e, a cis' e'>4^\"M\" <a cis' e'>4 <a c' e'>4^\"m\" <e gis d'>4^\"7\" <b d' f'>4^\"dim\" <d fis a>4^\"M\" <e g c'>4^\"M\" a,4 <a cis' e'>4^\"M\" a,4_\"_\" <a cis' e'>4^\"M\" <f a c'>4^\"M\" <f a c'>4 <f a c'>4^\"M\" <g b d'>4 cis4 <des f aes>4^\"M\" c,4-> r4")
 
 #(define expected-russian
-   "grace(a,8) <e, a cis' e'>4^\"Б\" <a cis' e'>4^\"Б\" grace(a,8) <a c' e'>4^\"М\" grace(e,8) <e gis d'>4^\"7\" grace(b,8) <b d' f'>4^\"У\" grace(d,8) <d fis a>4^\"Б\" grace(c8) <e g c'>4^\"Б\" a,4 <a cis' e'>4^\"Б\" a,4_\"В\" grace(a,8) <a cis' e'>4^\"Б\" grace(f,8) <f a c'>4^\"Б\" <f a c'>4^\"Б\" <f a c'>4^\"Б\" grace(g,8) <g b d'>4^\"Б\" c,4-> r4")
+   "grace(a,8) <e, a cis' e'>4^\"Б\" <a cis' e'>4^\"Б\" grace(a,8) <a c' e'>4^\"М\" grace(e,8) <e gis d'>4^\"7\" grace(b,8) <b d' f'>4^\"У\" grace(d,8) <d fis a>4^\"Б\" grace(c8) <e g c'>4^\"Б\" a,4 <a cis' e'>4^\"Б\" a,4_\"В\" grace(a,8) <a cis' e'>4^\"Б\" grace(f,8) <f a c'>4^\"Б\" <f a c'>4^\"Б\" <f a c'>4^\"Б\" grace(g,8) <g b d'>4^\"Б\" cis4 grace(des,8) <des f aes>4^\"Б\" c,4-> r4")
 
 englishMusic = \aaan-convert \sample
 

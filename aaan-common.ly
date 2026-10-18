@@ -239,21 +239,19 @@
    (>= (aaan-diatonic-steps pitch)
        (aaan-diatonic-steps aaan-bass-center)))
 
-% Close voicing: while any chord tone sits below the middle line, move
-% that tone up an octave.  C major is <e g c'>.
+% Close voicing.  Spelled tones are built from octave -1, so a tone below
+% the middle line is at most one octave below it.  One pass is enough.
+% C major is <e g c'>.
 #(define (aaan-invert-onto-center pitches)
-   (let loop ((pitches pitches) (guard 12))
-     (call-with-values
-      (lambda ()
-        (partition aaan-on-or-above-center? pitches))
-      (lambda (high low)
-        (if (or (null? low) (<= guard 0))
-            (sort pitches ly:pitch<?)
-            (loop (append high
-                          (map (lambda (p)
-                                 (ly:pitch-transpose p (ly:make-pitch 1 0 0)))
-                               low))
-                  (- guard 1)))))))
+   (call-with-values
+    (lambda ()
+      (partition aaan-on-or-above-center? pitches))
+    (lambda (high low)
+      (sort (append high
+                    (map (lambda (p)
+                           (ly:pitch-transpose p (ly:make-pitch 1 0 0)))
+                         low))
+            ly:pitch<?))))
 
 #(define (is-AAAN-chord? note-event)
    (and (ly:music? note-event)

@@ -4,8 +4,12 @@
 % Title is a literal header field and is never passed to \aaan-text.
 #(set! aaan-song-title "Engrave Test")
 
-% Two voices at once.  e,_"_" is a counterbass: English keeps the source
-% underscore, Russian prints Cyrillic В.  fine stays Italian.
+% Two voices at once.  Review baseline for the spelled chord tones is
+% <a cis' g'>, <a cis' e'>, <e g c'>, and <a c' ees'>.
+% English keeps the source marks.  Russian row letters on those
+% chords are 7, Б, Б, and У.
+% e,_"_" is a counterbass: English keeps the source underscore, Russian
+% prints Cyrillic В.  fine stays Italian.
 testnotes = \absolute {
   <<
     { <a, a>4^"7" c,8 r8 ees,4 a4^"M" }
@@ -14,23 +18,32 @@ testnotes = \absolute {
   >>
 }
 
+englishConvert = \aaan-convert \testnotes
+#(format #t "\n===== testsong-engrave english =====\n")
+#(display-lily-music englishConvert)
+#(newline)
+
 \score {
   \new PianoStaff <<
     \new Staff \with { instrumentName = "AAAN" }
     { \clef bass \testnotes }
     \new Staff \with { instrumentName = "Convert" }
-    { \clef bass \aaan-convert \testnotes }
+    { \clef bass \englishConvert }
   >>
   \header { title = "Engrave Test" }
   \layout { }
 }
 
 \aaanLanguage #'russian
+russianConvert = \aaan-translate \aaan-convert \testnotes
+#(format #t "\n===== testsong-engrave russian =====\n")
+#(display-lily-music russianConvert)
+#(newline)
 
 \score {
   \new PianoStaff <<
     \new Staff \with { instrumentName = \aaan-text "Bass" }
-    { \clef bass \aaan-translate \aaan-convert \testnotes }
+    { \clef bass \russianConvert }
   >>
   \header {
     title = "Engrave Test"
