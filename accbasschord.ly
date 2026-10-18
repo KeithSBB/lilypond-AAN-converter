@@ -105,7 +105,8 @@
              (begin
                (log-message 'debug "create-chord-from-chord: eventchord:\n  ~a\n" eventchord)
                (let* ((chord-articu (filter (lambda (elem)
-                                              (not (equal? (ly:music-property elem 'name) 'note-event)))
+                                              (not (and (ly:music? elem)
+                                                        (music-is-of-type? elem 'note-event))))
                                             chord-elements))
                       (newchord (make-music
                                  'EventChord
@@ -185,10 +186,12 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
           (filtered (filter (lambda (event) (is-AAAN-bass? event)) elements)))
      (cond ((equal? (length filtered) 0) (make-music 'RestEvent 'duration duration))
            ((equal? (length filtered) 1) (first filtered))
+           ;; filtered is a list of notes.  maybe-staccato walks music and
+           ;; crashes on that list.  The caller adds staccato to the chord.
            ((> (length filtered) 1)
             (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
             (make-music 'EventChord
-                        'elements (maybe-staccato filtered))))))
+                        'elements filtered)))))
 
 #(define (scheme-extract-bass music)
    (log-message 'debug "scheme-extract-bass: Entering\n")
@@ -207,8 +210,7 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
          ((music-is-of-type? event 'simultaneous-music)
           (process-simultaneous-music event 'bass))
          (else event)))
-      new-music)
-     (maybe-staccato new-music)))
+      new-music)))
 
 aaan-extract-bass = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
                       (log-message 'debug "\\aaan-extract-bass: Entering\n====================================\n")
@@ -216,4 +218,7 @@ aaan-extract-bass = #(define-music-function (staccato music) ((boolean? #f) ly:m
                       (if (boolean? staccato)
                           (set! make-staccato staccato)
                           (set! make-staccato #f))
-                      (scheme-extract-bass music))
+                      ;; Once, on the finished music.  scheme-extract-bass is
+                      ;; also used on each voice of a simultaneous, and
+                      ;; applying staccato there would mark those notes twice.
+                      (maybe-staccato (scheme-extract-bass music)))

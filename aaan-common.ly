@@ -69,7 +69,8 @@
 #(define aaan-major-intvls (list 4 7))
 #(define aaan-minor-intvls (list 3 7))
 #(define aaan-sevth-intvls (list 4 10))
-#(define aaan-dim-intvls (list 3 9))
+% Root, minor third, diminished fifth.  (3 9) is a diminished seventh.
+#(define aaan-dim-intvls (list 3 6))
 
 #(hash-set! aaan-chord-intvl-table "M" aaan-major-intvls)
 #(hash-set! aaan-chord-intvl-table "maj" aaan-major-intvls)
@@ -165,25 +166,43 @@
          "unknown"
          (ly:music-property (first filtered) 'text))))
 
-% Pitch (octave, notename, alteration) from a root and a semitone offset.
-% Spelling follows the original converter: the next letter at or above the
-% target semitone, so A7 is written <a des g>, not <a cis g>.
+% Chord tone above the normalized root (absolute octave -1, the bass-clef
+% chord row).  The letter is the diatonic third, fifth, or seventh; the
+% alteration is whatever makes the semitone count exact.  A major is
+% <a cis' e'>, not the old next-letter spelling <a des e>.
+% semitones . diatonic steps: minor third, major third,
+% diminished fifth, perfect fifth, diminished seventh, minor seventh.
+#(define aaan-interval-steps
+   '((3 . 2)
+     (4 . 2)
+     (6 . 4)
+     (7 . 4)
+     (9 . 6)
+     (10 . 6)))
+
 #(define (make-pitch-from-refpitch&semitone root-pitch semitone)
    (log-message 'debug "make-pitch-from-refpitch&semitone: Entered  root-pitch ~a, semitone ~a\n" root-pitch semitone)
    (if (not (ly:pitch? root-pitch))
        (begin
          (log-message 'warning "make-pitch-from-refpitch&semitone: non-pitch root ~a\n" root-pitch)
          (ly:make-pitch -1 0 0))
-       (let* ((total-semitones (+ (ly:pitch-semitones root-pitch) semitone))
-              (target-semitone (modulo total-semitones 12))
-              (notename-semitone-list '(0 2 4 5 7 9 11)) ; C:0, D:2, E:4, F:5, G:7, A:9, B:11
-              (closest-notename (let loop ((note-semitone notename-semitone-list) (index 0))
-                                  (if (or (null? note-semitone) (>= (car note-semitone) target-semitone))
-                                      index
-                                      (loop (cdr note-semitone) (+ index 1)))))
-              (alteration (/ (- target-semitone (list-ref notename-semitone-list closest-notename)) 2)))
-         (log-message 'debug "make-pitch-from-refpitch&semitone: pitch: octave -1, notename ~a, alteration ~a\n" closest-notename alteration)
-         (ly:make-pitch -1 closest-notename alteration))))
+       (let* ((steps (assoc semitone aaan-interval-steps))
+              (step (if steps (cdr steps)
+                        (begin
+                          (log-message 'warning "make-pitch-from-refpitch&semitone: no diatonic step for ~a semitones\n" semitone)
+                          0)))
+              (root (ly:make-pitch -1
+                                   (ly:pitch-notename root-pitch)
+                                   (ly:pitch-alteration root-pitch)))
+              (raw-note (+ (ly:pitch-notename root) step))
+              (oct (+ -1 (quotient raw-note 7)))
+              (note (modulo raw-note 7))
+              (natural (ly:make-pitch oct note 0))
+              (delta (- (+ (ly:pitch-semitones root) semitone)
+                        (ly:pitch-semitones natural)))
+              (alteration (/ delta 2)))
+         (log-message 'debug "make-pitch-from-refpitch&semitone: pitch: octave ~a, notename ~a, alteration ~a\n" oct note alteration)
+         (ly:make-pitch oct note alteration))))
 
 #(define (note-event-to-chord-elements note-event chord-name)
    (log-message 'debug "note-event-to-chord-elements: Entered\n")
@@ -216,15 +235,20 @@
                               'duration dur))
                 pitches)))))
 
-% Middle line of the bass staff is D3.  C#3 and lower are bass-row notes.
-% Db3 (same semitone count as C#3, written as a flat) stays on the chord side
-% of the original test, so the alteration check is preserved.
-% AAAN writes the bass in the comma octave and the chord row in the
-% octave above.  Middle C is the split: a note below it is a bass button,
-% a note at or above it is a chord button.  The old -11 threshold sat at
-% C-sharp below the staff, so a, e, g, and d, were all spelled as chords
-% and the bass attack vanished.
-#(define aaan-bass-split 0)
+% Bass-clef middle line is absolute d (D3).  Noteheads below that line are
+% bass buttons; noteheads on or above it are chord buttons.  Comparison is
+% diatonic, so des (on the D line) is a chord and cis (in the C space) is
+% a bass note.  Middle C is above this line: a semitone split of 0 classifies
+% the whole chord row, d through b, as bass.  <e, a> is then two bass notes.
+#(define aaan-bass-center (ly:make-pitch -1 1 0))
+
+#(define (aaan-diatonic-steps pitch)
+   (+ (* 7 (ly:pitch-octave pitch))
+      (ly:pitch-notename pitch)))
+
+#(define (aaan-on-or-above-center? pitch)
+   (>= (aaan-diatonic-steps pitch)
+       (aaan-diatonic-steps aaan-bass-center)))
 
 #(define (is-AAAN-chord? note-event)
    (and (ly:music? note-event)
@@ -233,7 +257,7 @@
                        (ly:music-property note-event 'name))
           (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
                (let ((pitch (aaan-safe-pitch note-event)))
-                 (and pitch (>= (ly:pitch-semitones pitch) aaan-bass-split)))))))
+                 (and pitch (aaan-on-or-above-center? pitch)))))))
 
 #(define (is-AAAN-bass? note-event)
    (and (ly:music? note-event)
@@ -241,7 +265,7 @@
           (log-message 'debug "is-AAAN-bass?: Entered \n")
           (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
                (let ((pitch (aaan-safe-pitch note-event)))
-                 (and pitch (< (ly:pitch-semitones pitch) aaan-bass-split)))))))
+                 (and pitch (not (aaan-on-or-above-center? pitch))))))))
 
 #(define (make-rest note-event)
    (log-message 'debug "make-rest: Make Rest\n")

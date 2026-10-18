@@ -160,10 +160,10 @@ aaanProtectTitle =
                'direction 1
                'aaan-generated #t))
 
-% Bass-clef center line is d.  Bass notes and the root cue stay on or below
-% it.  Spelled chord notes stay above it.  The cue is a simultaneous note,
+% Bass-clef center line is aaan-bass-center (absolute d, D3) from
+% aaan-common.ly.  Bass notes and the root cue stay on or below it.
+% Spelled chord notes stay above it.  The cue is a simultaneous note,
 % so ledger lines appear and the chord's timing does not change.
-#(define aaan-bass-center (ly:make-pitch -1 1 0))
 #(define aaan-octave-down (ly:make-pitch -1 0 0))
 #(define aaan-octave-up (ly:make-pitch 1 0 0))
 
