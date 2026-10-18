@@ -33,7 +33,7 @@ midiChords = \aaan-extract-chords [staccato bool] { ... AAAN music ... }
 ### Key Notation Rules:
 
 * **Staff Position:** Notes written below the middle line (D) of the bass clef staff represent single bass notes (fundamental or counterbass). Notes written on or above the middle line represent chord buttons. 
-* **Counterbass:** A bass note with a down-text underscore script, `_"_"`, is a counterbass. The row is not inferred. In English mode the source `_"_"` mark passes through unchanged. In Russian mode it prints as the Cyrillic «В» (U+0412), never Latin B.
+* **Counterbass:** A bass note with a down-text underscore script, `_"_"`, is a counterbass. The row is not inferred.
 * **Chord Symbols:** A letter or number above the notehead indicates the chord quality:
   
 * **M**: **Major chord**. An unmarked chord note uses the type most recently defined for that chord root earlier in the music, and the first time it appears it is major.
@@ -76,7 +76,14 @@ Accordion chords are always three notes
 
 ### Russian text
 
-`\aaanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. Russian chord letters replace source marks only, so an unmarked chord gets no letter. In Russian mode only, it also places a small parenthesized root note (zero duration) under the chord. The cue marks chords whose root bass was not just played or sounded with them, and it also appears when the preceding bass was a counterbass (`_"_"`). One cue covers a run of the same chord (same root and type). The cue goes on the first chord of the run only. A run ends at a different chord, a bass note, or a rest. The cue is written where that root bass is written (Basurmanov p.22). In Russian mode the counterbass mark `_"_"` prints as the Cyrillic «В» (U+0412), never Latin B.
+`\aaanLanguage #'russian`
+
+- **Chord letters:** **Б** major, **М** minor, **7**, **У** diminished, placed over the spelled chord. They replace source marks only, so an unmarked chord gets no letter. Pitch names are not printed.
+- **Counterbass:** `\aaan-convert` prints the source `_"_"` as the Cyrillic «В» (U+0412) under the bass note, never Latin B. English mode passes `_"_"` through unchanged.
+- **Cue:** a small parenthesized root notehead under the chord, at zero duration (it takes no time, does not change the rhythm, and is silent in MIDI). Its pitch is the root at the nearest step below the middle line D, so C, C# and Cb sit at `c` and every other root at the comma octave.
+- **When a cue appears:** on the first chord of a run, unless that chord's root bass was just played or sounds with it. This is the only rule.
+- **Run:** consecutive chords with the same button, meaning the same root (enharmonics like C# and Db are the same) and the same type. Bar lines and ties do not break a run. A run is broken by a different chord, a separate bass note (fundamental or counterbass), a rest, a skip or full-bar rest, or the end of a sequential or simultaneous block. A bass note inside the same chord, like the `e,` in `<e, a>`, does not break it; that chord is cued unless the bass is its root.
+- **Example:** input `c,4 <c e g>4 <c e g>4 r4 | <c e g>4 <c e g>4 e,4_"_" <c e g>4`. Russian output: no cue on the first two chords (the root bass was just played), a cue on bar 2 beat 1 (after the rest), none on beat 2, В under `e,`, and a cue on beat 4.
 
 In Russian mode the **AAAN** score is converted to fully spelled out chords with those Russian chord marks and that cue.
 
@@ -99,7 +106,6 @@ Except for the copyright, translation can be a simple text look-up:
 |Lively|Живо|
 |With motion|Подвижно|
 |Animated|Оживлённо|
-|Brisk|Живо|
 |Fast|Быстро|
 |Very fast|Очень быстро|
 |Calmly|Спокойно|
@@ -118,9 +124,9 @@ Except for the copyright, translation can be a simple text look-up:
 |Bass|Бас|
 |Copyright  2026-10-1 "Keith Smith"|© Кит Смит, 2026|
 
-**Note:** the copyright line translates only for Keith Smith (© Кит Смит, <year>).
+**Note:** the input is any string. The first 4-digit year is used, and only when the holder is exactly "Keith Smith" does it print © Кит Смит, <year>. Anything else passes through unchanged.
 
-Italian dynamics and navigation marks (`f`, `p`, `fine`, `D.C.`, `rit.`) are never translated, and tempo words are never transliterated (no `Аллегро`/`Модерато`). Italian terms like Moderato pass through unchanged. Words passed through `\aaan-text` may be replaced by a real Russian equivalent from the table (e.g. `Moderately` → `Умеренно`, `Bayan` → `Баян`). 
+Italian dynamics and navigation marks (`f`, `p`, `fine`, `D.C.`, `rit.`) are never translated, and Italian terms like Moderato are never transliterated and pass through unchanged (no `Аллегро`/`Модерато`). Words passed through `\aaan-text` may be replaced by a real Russian equivalent from the table (e.g. `Moderately` → `Умеренно`, `Bayan` → `Баян`). 
 ```lilypond
 \include "aaan-convert.ly"
 
