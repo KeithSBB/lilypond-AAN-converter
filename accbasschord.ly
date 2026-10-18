@@ -200,17 +200,6 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
                    (let ((arts (ly:music-property chord 'articulations)))
                      (if (pair? arts) arts '())))))
 
-% Chord-type text (M/m/7/dim and the Russian row letters) stays on the
-% chord voice.  The bass voice keeps ties and articulations.
-#(define (aaan-quality-mark? event)
-   (and (ly:music? event)
-        (eq? (ly:music-property event 'name) 'TextScriptEvent)
-        (equal? (ly:music-property event 'direction) 1)
-        (let ((text (ly:music-property event 'text)))
-          (and (string? text)
-               (or (member text chord-keys)
-                   (member text '("Б" "М" "У")))))))
-
 #(define (aaan-bass-marks chord)
    (filter (lambda (event) (not (aaan-quality-mark? event)))
            (aaan-source-marks chord)))
@@ -235,10 +224,7 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
            (else
             (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
             (make-music 'EventChord
-                        'elements (append filtered
-                                          (filter (lambda (event)
-                                                    (not (music-is-of-type? event 'note-event)))
-                                                  marks)))))))
+                        'elements (append filtered marks))))))
 
 #(define (scheme-extract-bass music)
    (log-message 'debug "scheme-extract-bass: Entering\n")

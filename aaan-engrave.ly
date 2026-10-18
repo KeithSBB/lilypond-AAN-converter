@@ -29,15 +29,8 @@
 %
 % English keeps the source chord mark.  Russian replaces a source mark
 % with the Stradella row letter only (Б М 7 У) and does not print a pitch
-% name.  A source chord with no mark gets no letter.  In Russian only, the
-% first chord of a run gets a zero-duration parenthesized root notehead
-% under that chord, unless its root bass was just played or sounds in the
-% same chord.  A counterbass is not a root bass.  A run is the same button:
-% enharmonic pitch class and type.  Bar lines, ties, and { } do not break a
-% run.  A different chord, a separate bass note, a rest, a skip, a full-bar
-% rest, or the end of a << >> block does.  A bass inside the chord does not
-% break the run; that chord is cued only when it starts a run and the bass
-% is not its root.  The cue takes no time and does not sound.
+% name.  A source chord with no mark gets no letter.  See README.md for the
+% Russian cue rule.
 % A source counterbass _"_" is printed unchanged in English, and as
 % Cyrillic «В» (U+0412) in Russian.  The row is never inferred.
 % Italian dynamics and Italian navigation (f, fine, D.C.) are not translated.
@@ -164,10 +157,6 @@ aaanProtectTitle =
                'direction 1
                'aaan-generated #t))
 
-% Spelled chord tones sit on or above aaan-bass-center (absolute d).
-% The Russian cue is a parenthesized notehead in a second voice at the
-% chord's own beat, so the bar does not move and the cue stays under
-% that chord.  A leading grace would print it on the previous chord.
 #(define aaan-octave-down (ly:make-pitch -1 0 0))
 
 #(define (aaan-prop-list music sym)
@@ -191,13 +180,6 @@ aaanProtectTitle =
    (and (ly:pitch? left)
         (ly:pitch? right)
         (= (aaan-button-class left) (aaan-button-class right))))
-
-#(define (aaan-quality-script? event)
-   (and (ly:music? event)
-        (eq? (ly:music-property event 'name) 'TextScriptEvent)
-        (equal? (ly:music-property event 'direction) 1)
-        (let ((text (ly:music-property event 'text)))
-          (and (string? text) (member text chord-keys)))))
 
 #(define (aaan-counterbass-mark? event)
    (and (ly:music? event)
@@ -235,13 +217,9 @@ aaanProtectTitle =
          (loop (ly:pitch-transpose p aaan-octave-down))
          p)))
 
-% The chord stays in the voice that owns the ties, slurs, beams, and
-% \\ stem direction.  A fresh { } would end that voice before the spanner
-% does.  Only the cue is a new voice: a filled notehead of length zero,
-% parenthesized, shifted aside when a bass note a second away would cover
-% it, and silent in MIDI.
 #(define aaan-current-voice-id (make-parameter #f))
 #(define aaan-cues-here (make-parameter 0))
+#(define aaan-slash-voice (make-parameter #f))
 #(define aaan-voice-serial 0)
 
 #(define (aaan-next-voice-id)
@@ -275,8 +253,102 @@ aaanProtectTitle =
        1.5
        0))
 
+#(define (aaan-grob-name g)
+   (if (ly:grob? g)
+       (assq-ref (ly:grob-property g 'meta) 'name)
+       #f))
+
+% Ink box in staff spaces, including extra-offset.  #f when there is no stencil.
+#(define (aaan-ink-box g)
+   (let ((stil (ly:grob-property g 'stencil)))
+     (if (not (ly:stencil? stil))
+         #f
+         (let ((sx (ly:stencil-extent stil X))
+               (sy (ly:stencil-extent stil Y)))
+           (if (or (interval-empty? sx) (interval-empty? sy))
+               #f
+               (let* ((sys (ly:grob-system g))
+                      (off (ly:grob-property g 'extra-offset '(0 . 0)))
+                      (dx (if (pair? off) (car off) 0))
+                      (dy (if (pair? off) (cdr off) 0))
+                      (rx (ly:grob-relative-coordinate g sys X))
+                      (ry (ly:grob-relative-coordinate g sys Y)))
+                 (list (+ rx (car sx) dx)
+                       (+ rx (cdr sx) dx)
+                       (+ ry (car sy) dy)
+                       (+ ry (cdr sy) dy))))))))
+
+#(define (aaan-x-gap left right obst d)
+   (max (- (car obst) (+ right d))
+        (- (+ left d) (cadr obst))))
+
+% Smallest shift that leaves `gap` staff spaces between the cue and every
+% stem, flag, or accidental at the cue's height.  A shift to the right is
+% preferred when it is about as short, matching the bass-cue nudge.
+#(define (aaan-clear-shift left right y0 y1 obstacles gap)
+   (let* ((close (filter (lambda (o)
+                           (> (- (min y1 (cadddr o))
+                                 (max y0 (caddr o)))
+                              -0.02))
+                         obstacles))
+          (cands (cons 0
+                       (apply append
+                              (map (lambda (o)
+                                     (list (- (car o) gap right)
+                                           (- (+ (cadr o) gap) left)))
+                                   close))))
+          (good (filter (lambda (d)
+                          (and (<= (abs d) 2.5)
+                               (every (lambda (o)
+                                        (>= (aaan-x-gap left right o d)
+                                            (- gap 0.015)))
+                                      close)))
+                        cands)))
+     (if (null? good)
+         0
+         (let* ((sorted (sort good (lambda (a b) (< (abs a) (abs b)))))
+                (best (car sorted))
+                (limit (+ (abs best) 0.5))
+                (rightward (filter (lambda (d) (<= -0.001 d limit)) good)))
+           (if (null? rightward) best (apply min rightward))))))
+
+% Parentheses are parented to the cue notehead, so moving the notehead
+% moves the parentheses with it.
+#(define (aaan-translate-cue! g d)
+   (let ((heads (ly:grob-object g 'elements)))
+     (if (ly:grob-array? heads)
+         (for-each
+          (lambda (head)
+            (ly:grob-translate-axis! head d X)
+            (let ((acc (ly:grob-object head 'accidental-grob)))
+              (if (ly:grob? acc)
+                  (ly:grob-translate-axis! acc d X))))
+          (ly:grob-array->list heads)))))
+
+#(define (aaan-clear-slash-cue g)
+   (let ((box (aaan-ink-box g)))
+     (if box
+         (let* ((sys (ly:grob-system g))
+                (all (ly:grob-array->list (ly:grob-object sys 'all-elements)))
+                (obstacles
+                 (filter-map
+                  (lambda (e)
+                    (and (memq (aaan-grob-name e) '(Stem Flag Accidental))
+                         (aaan-ink-box e)))
+                  all))
+                (d (aaan-clear-shift (car box) (cadr box)
+                                     (caddr box) (cadddr box)
+                                     obstacles 0.15)))
+           (if (not (zero? d))
+               (aaan-translate-cue! g d))))))
+
+% A \\ cue sits between the other voice's stem, flag, or accidental.
+% The parenthesis is drawn narrow enough to fit in that gap, then shifted.
 #(define (aaan-cue-voice cue shift)
-   (let ((nudge (cons shift 0)))
+   (let ((nudge (cons shift 0))
+         (slash? (aaan-slash-voice))
+         (paren-size (if (aaan-slash-voice) -5 -2))
+         (paren-pad (if (aaan-slash-voice) -0.15 0.2)))
      #{
        \new Voice \with {
          \remove "Note_performer"
@@ -288,9 +360,12 @@ aaanProtectTitle =
          \override NoteHead.font-size = #-3
          \override NoteHead.extra-spacing-width = #'(+inf.0 . -inf.0)
          \override NoteHead.extra-offset = #nudge
-         \override Parentheses.font-size = #-2
+         \override Parentheses.font-size = #paren-size
+         \override Parentheses.padding = #paren-pad
          \override Parentheses.extra-spacing-width = #'(+inf.0 . -inf.0)
          \override Parentheses.extra-offset = #nudge
+         \override Parentheses.after-line-breaking =
+           #(lambda (g) (if slash? (aaan-clear-slash-cue g)))
          \override Accidental.extra-spacing-width = #'(+inf.0 . -inf.0)
          \override Accidental.extra-offset = #nudge
        } { \parenthesize $cue }
@@ -309,15 +384,8 @@ aaanProtectTitle =
       'SimultaneousMusic
       'elements (list
                  (if (string? id)
-                     #{
-                       \context Voice = #id {
-                         \once \override Stem.direction = #UP
-                         $chord
-                       }
-                     #}
-                     #{
-                       { \once \override Stem.direction = #UP $chord }
-                     #})
+                     #{ \context Voice = #id { $chord } #}
+                     chord)
                  cue-voice))))
 
 % Replace a source quality mark.  An unmarked chord keeps no letter.
@@ -325,7 +393,7 @@ aaanProtectTitle =
    (let ((letter (aaan-quality-suffix canonical 'russian))
          (seen #f))
      (map (lambda (script)
-            (if (and (not seen) (aaan-quality-script? script))
+            (if (and (not seen) (aaan-quality-mark? script))
                 (begin
                   (set! seen #t)
                   (aaan-make-symbol-event letter))
@@ -443,29 +511,36 @@ aaanProtectTitle =
       (else
        (list music bass-info run)))))
 
-% voice-index is 0..3 for a \\ part (voiceOne..voiceFour).  #f is an
-% ordinary { } block: its end does not break a run.  A cued chord has to
-% name this voice so a tie or slur that starts on it can finish later.
+#(define (aaan-walk-items music bass-info run)
+   (let loop ((items (aaan-prop-list music 'elements))
+              (bass bass-info)
+              (run run)
+              (acc '()))
+     (if (null? items)
+         (list (aaan-replace-elements music (reverse acc)) bass run)
+         (let ((step (aaan-convert-walk (car items) bass run)))
+           (loop (cdr items)
+                 (second step)
+                 (third step)
+                 (cons (first step) acc))))))
+
+% A nested { }, tuplet, or repeat body keeps the voice it was written in.
+% A new voice id is created only for the top-level sequential and for each
+% \\ part.  On 2.24.4 a bare << chord \new Voice { cue } >> does not keep a
+% slur that starts on the chord, so the chord is sent back to this voice.
 #(define (aaan-convert-sequential music bass-info run . rest)
-   (let ((voice-index (if (pair? rest) (car rest) #f))
-         (voice-id (aaan-next-voice-id)))
-     (parameterize ((aaan-current-voice-id voice-id)
-                    (aaan-cues-here 0))
-       (let loop ((items (aaan-prop-list music 'elements))
-                  (bass bass-info)
-                  (run run)
-                  (acc '()))
-         (if (null? items)
-             (let ((body (aaan-replace-elements music (reverse acc))))
+   (let ((voice-index (if (pair? rest) (car rest) #f)))
+     (if (and (string? (aaan-current-voice-id)) (not (integer? voice-index)))
+         (aaan-walk-items music bass-info run)
+         (let ((voice-id (aaan-next-voice-id)))
+           (parameterize ((aaan-current-voice-id voice-id)
+                          (aaan-cues-here 0))
+             (let ((step (aaan-walk-items music bass-info run)))
                (list (if (or (> (aaan-cues-here) 0) (integer? voice-index))
-                         (aaan-in-voice voice-id body voice-index)
-                         body)
-                     bass run))
-             (let ((step (aaan-convert-walk (car items) bass run)))
-               (loop (cdr items)
+                         (aaan-in-voice voice-id (first step) voice-index)
+                         (first step))
                      (second step)
-                     (third step)
-                     (cons (first step) acc))))))))
+                     (third step))))))))
 
 #(define (aaan-voice-separator? music)
    (and (ly:music? music)
@@ -479,31 +554,29 @@ aaanProtectTitle =
        (loop (cdr els) '() (cons (reverse current) parts)))
       (else (loop (cdr els) (cons (car els) current) parts)))))
 
-#(define (aaan-part-sequential items)
-   (if (and (= (length items) 1)
-            (music-is-of-type? (car items) 'sequential-music))
-       (car items)
-       (make-music 'SequentialMusic 'elements items)))
-
 #(define (aaan-convert-simultaneous music bass-info run)
    (let ((elements (aaan-prop-list music 'elements)))
      (if (any aaan-voice-separator? elements)
-         ;; \\ assigns stem direction by part.  Naming each part keeps that
-         ;; direction and gives a cued chord a voice its slur can return to.
-         (let ((parts (aaan-split-voices elements)))
-           (list (make-music
-                  'SimultaneousMusic
-                  'elements (map (lambda (items index)
-                                   (first (aaan-convert-sequential
-                                           (aaan-part-sequential items)
-                                           bass-info run index)))
-                                 parts
-                                 (iota (length parts))))
-                 #f #f))
+         (parameterize ((aaan-slash-voice #t))
+           (let ((parts (aaan-split-voices elements)))
+             (list (make-music
+                    'SimultaneousMusic
+                    'elements (map (lambda (items index)
+                                     (let ((part
+                                            (if (and (= (length items) 1)
+                                                     (music-is-of-type? (car items)
+                                                                        'sequential-music))
+                                                (car items)
+                                                (make-music 'SequentialMusic
+                                                            'elements items))))
+                                       (first (aaan-convert-sequential
+                                               part bass-info run index))))
+                                   parts
+                                   (iota (length parts))))
+                   #f #f)))
          (let ((walked (map (lambda (e)
                               (first (aaan-convert-walk e bass-info run)))
                             elements)))
-           ;; The end of << >> breaks a run.  A { } boundary does not.
            (list (aaan-replace-elements music walked) #f #f)))))
 
 #(define (aaan-convert-volta music bass-info run)

@@ -119,6 +119,20 @@ sample = \absolute {
    (and (ly:music? music)
         (eq? (ly:music-property music 'name) 'EventChord)))
 
+% A \\ passage contains the cue's own simultaneous.  Only that inner
+% simultaneous is the cue; the outer one still has the other notes.
+#(define (contains-nested-cue? music)
+   (let loop ((els (let ((v (ly:music-property music 'elements)))
+                     (if (pair? v) v '()))))
+     (if (null? els)
+         #f
+         (or (find-music
+              (lambda (m)
+                (and (eq? (ly:music-property m 'name) 'SimultaneousMusic)
+                     (find-music parenthesized-note? m)))
+              (car els))
+             (loop (cdr els))))))
+
 #(define (summarize music)
    (cond
     ((not (ly:music? music)) "")
@@ -146,7 +160,8 @@ sample = \absolute {
      (string-append "r" (duration->number (ly:music-property music 'duration))
                     (format-scripts music)))
     ((and (eq? (ly:music-property music 'name) 'SimultaneousMusic)
-          (find-music parenthesized-note? music))
+          (find-music parenthesized-note? music)
+          (not (contains-nested-cue? music)))
      (let ((cue (find-music parenthesized-note? music))
            (chord (find-music event-chord? music)))
        (string-append "cue("
@@ -286,9 +301,82 @@ counterRussian = \aaan-convert \counterStart
    (if (pair? hits)
        (error (format #f "Latin look-alike in readme run: ~s" hits))))
 
-% The C cue is MIDI note 48.  This score has no sounding C3, so a cue that
-% plays would show up as note 48.
+% A cued chord inside a nested { }, with a tie, slur, and hairpin that
+% leave the block.
+nestedBlock = \absolute { r4 { c'4^"M"(\< ~ } c'4)\! c'4 }
+nestedRussian = \aaan-convert \nestedBlock
+#(report "nested braces"
+   nestedRussian
+   "r4 cue(c) <e g c'>4^\"Б\"(\\<~ <e g c'>4)\\! <e g c'>4"
+   nestedBlock)
+
+% Same spanners leaving a tuplet.
+tupletBlock = \absolute { \tuplet 3/2 { c'4^"M"(\< c'4 c'4 ~ } c'4)\! c'4 }
+tupletRussian = \aaan-convert \tupletBlock
+#(report "tuplet"
+   tupletRussian
+   "cue(c) <e g c'>4*2/3^\"Б\"(\\< <e g c'>4*2/3 <e g c'>4*2/3~ <e g c'>4)\\! <e g c'>4"
+   tupletBlock)
+
+% Same spanners leaving a repeat body.
+repeatBlock = \absolute { \repeat volta 2 { r4 c'4^"M"(\< ~ c'4 c'4 } c'4)\! c'4 c'4 r4 }
+repeatRussian = \aaan-convert \repeatBlock
+#(report "repeat volta"
+   repeatRussian
+   "r4 cue(c) <e g c'>4^\"Б\"(\\<~ <e g c'>4 <e g c'>4 <e g c'>4)\\! <e g c'>4 <e g c'>4 r4"
+   repeatBlock)
+
+% Lower \\ voice keeps voiceTwo stems.  The engraver below errors otherwise.
+slashBlock = \absolute { << { s1 } \\ { d'2^"M" ~ d'2 } >> }
+slashRussian = \aaan-convert \slashBlock
+#(report "lower voice"
+   slashRussian
+   "cue(d,) <d fis a>2^\"Б\"~ <d fis a>2"
+   slashBlock)
+
+% cis and des share unmarked-chord type memory.
+sharedType = \absolute { cis'4^"m" des'4 }
+sharedRussian = \aaan-convert \sharedType
+#(report "shared type memory"
+   sharedRussian
+   "cue(cis) <e gis cis'>4^\"М\" <des fes aes>4"
+   sharedType)
+
+% MIDI is written after this file finishes, so the assertion runs from
+% write-performances-midis via check-cue-midi.py.  There is no CI job.
+#(define aaan-midi-writer write-performances-midis)
+#(set! write-performances-midis
+   (lambda (perfs basename . rest)
+     (apply aaan-midi-writer perfs basename rest)
+     (let* ((ext (ly:get-option 'midi-extension))
+            (path (format #f "~a.~a" basename ext))
+            (status (system (format #f "python3 ~s ~s"
+                                    "/workspace/check-cue-midi.py" path))))
+       (if (not (eqv? 0 (status:exit-val status)))
+           (ly:error "cue MIDI check failed for ~a" path)))))
+
 midiCue = \aaan-convert \absolute { c'1^"M" }
+
+#(define (assert-down-stem ctx)
+   (let ((gs '()) (dirs '()) (left 0))
+     (make-engraver
+      (acknowledgers
+       ((stem-interface engraver grob source)
+        (set! gs (cons grob gs))))
+      ((finalize engraver)
+       (set! left (length gs))
+       (for-each
+        (lambda (g)
+          (ly:grob-set-property! g 'after-line-breaking
+            (lambda (gg)
+              (set! dirs (cons (ly:grob-property gg 'direction) dirs))
+              (set! left (1- left))
+              (if (zero? left)
+                  (begin
+                    (ly:message "slash stems ~a" dirs)
+                    (if (not (memv -1 dirs))
+                        (ly:error "lower \\\\ voice stem is not down: ~a" dirs)))))))
+        gs)))))
 
 \score {
   \new Staff \with { instrumentName = "english" }
@@ -320,4 +408,17 @@ midiCue = \aaan-convert \absolute { c'1^"M" }
   }
   \header { piece = "runs" }
   \layout { indent = 0.4\in }
+}
+
+\score {
+  \new Staff { \clef bass \nestedRussian \tupletRussian \repeatRussian }
+  \header { piece = "nested" }
+  \layout { indent = 0.4\in ragged-right = ##t }
+}
+
+\score {
+  \new Staff \with { \consists #assert-down-stem }
+  { \clef bass \slashRussian }
+  \header { piece = "lower voice" }
+  \layout { indent = 0.4\in ragged-right = ##t }
 }

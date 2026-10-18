@@ -86,21 +86,31 @@
 #(define chord-keys
    (map car (hash-map->list (lambda (key value) (cons key value)) aaan-chord-intvl-table)))
 
-% chord-history: ((pitch-notename pitch-alteration) . chord-name)
-% A omitted quality reuses the last quality for that pitch class.
+% chord-history: (enharmonic pitch class . chord-name)
+% C# and Db share one remembered type.
 
 #(define chord-history '())
+
+#(define (aaan-history-key pitch)
+   (modulo (ly:pitch-semitones pitch) 12))
+
+#(define (aaan-quality-mark? event)
+   (and (ly:music? event)
+        (eq? (ly:music-property event 'name) 'TextScriptEvent)
+        (equal? (ly:music-property event 'direction) 1)
+        (let ((text (ly:music-property event 'text)))
+          (and (string? text) (member text chord-keys)))))
 
 #(define (search-history note-event)
    (log-message 'debug "search-history:  entered\n")
    (let ((pitch (aaan-safe-pitch note-event)))
      (if (not pitch)
          '()
-         (let ((note-alt (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
-           (let ((item (assoc note-alt chord-history)))
+         (let ((key (aaan-history-key pitch)))
+           (let ((item (assoc key chord-history)))
              (if item
                  (begin
-                   (log-message 'debug "search-history: found ~a for (note-name , alteration) ~a\n" (cdr item) note-alt)
+                   (log-message 'debug "search-history: found ~a for pitch class ~a\n" (cdr item) key)
                    (cdr item))
                  '()))))))
 
@@ -108,14 +118,14 @@
    (log-message 'debug "save-update-history:  entered\n")
    (let ((pitch (aaan-safe-pitch note-event)))
      (if pitch
-         (let ((note-alt (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch))))
-           (let ((item (assoc note-alt chord-history)))
+         (let ((key (aaan-history-key pitch)))
+           (let ((item (assoc key chord-history)))
              (if item
                  (begin
-                   (log-message 'debug "save-update-history: Found (note-name , alteration) ~a updating to ~a\n" note-alt chord-name)
+                   (log-message 'debug "save-update-history: pitch class ~a updating to ~a\n" key chord-name)
                    (set-cdr! item chord-name))
                  (begin
-                   (set! chord-history (cons (cons note-alt chord-name) chord-history))
+                   (set! chord-history (cons (cons key chord-name) chord-history))
                    (log-message 'debug "save-update-history: added to Chord-history: ~a\n" chord-history))))))))
 
 #(define (clear-history)
