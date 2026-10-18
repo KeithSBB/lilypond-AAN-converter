@@ -27,10 +27,11 @@
 %        \aaanLanguage #'english     % default
 %        \aaanLanguage #'russian
 %
-% English keeps the source chord mark.  Russian replaces it with the
-% Stradella row letter only (Б М 7 У) and does not print a pitch name.
-% In Russian only, a zero-duration parenthesized root cue is placed with a
-% chord whose root bass was not just played or sounded with it, including
+% English keeps the source chord mark.  Russian replaces a source mark
+% with the Stradella row letter only (Б М 7 У) and does not print a pitch
+% name.  A source chord with no mark gets no letter.  In Russian only, a
+% parenthesized root notehead is stacked under the chord on that chord's
+% beat when its root bass was not just played or sounded with it, including
 % when that bass was a counterbass.  One cue covers a run of the same chord.
 % A source counterbass _"_" is printed unchanged in English, and as
 % Cyrillic «В» (U+0412) in Russian.  The row is never inferred.
@@ -159,8 +160,9 @@ aaanProtectTitle =
                'aaan-generated #t))
 
 % Spelled chord tones sit on or above aaan-bass-center (absolute d).
-% The Russian cue is a grace note: its main-time length is zero, so the
-% bar does not move.  A main-time duration of zero is not engraved.
+% The Russian cue is a parenthesized notehead in a second voice at the
+% chord's own beat, so the bar does not move and the cue stays under
+% that chord.  A leading grace would print it on the previous chord.
 #(define aaan-octave-down (ly:make-pitch -1 0 0))
 
 #(define (aaan-prop-list music sym)
@@ -227,39 +229,51 @@ aaanProtectTitle =
          (loop (ly:pitch-transpose p aaan-octave-down))
          p)))
 
-#(define (aaan-cue-grace pitch)
-   (let ((note (make-music 'NoteEvent
-                           'pitch (aaan-bass-register pitch)
-                           'duration (ly:make-duration 3)
-                           'tweaks '((parenthesized . #t)
-                                     (font-size . -3)
-                                     ((Parentheses . font-size) . -2)
-                                     ((Stem . transparent) . #t)
-                                     ((Flag . transparent) . #t)
-                                     ((Dots . transparent) . #t)))))
-     (make-music 'GraceMusic
-                 'element (make-music 'SequentialMusic
-                                      'elements (list note)))))
+#(define (aaan-chord-duration chord)
+   (let ((note (find (lambda (event)
+                       (and (ly:music? event)
+                            (eq? (ly:music-property event 'name) 'NoteEvent)))
+                     (aaan-prop-list chord 'elements))))
+     (if note
+         (ly:music-property note 'duration)
+         (ly:make-duration 2))))
 
+% Same beat as the chord, in the bass register, stemless and parenthesized.
+% The two voices share one column, so the cue sits under this chord.
 #(define (aaan-attach-cue chord root)
-   (let ((seq (make-music 'SequentialMusic
-                          'elements (list (aaan-cue-grace root) chord))))
-     (set! (ly:music-property seq 'aaan-cue-seq) #t)
-     seq))
+   (let ((cue (make-music 'NoteEvent
+                          'pitch (aaan-bass-register root)
+                          'duration (aaan-chord-duration chord))))
+     #{
+       <<
+         \new Voice \with {
+           \shiftOff
+           \override NoteColumn.ignore-collision = ##t
+         } { \oneVoice $chord }
+         \new Voice \with {
+           \shiftOff
+           \override NoteColumn.ignore-collision = ##t
+           \override NoteColumn.force-hshift = #0
+           \omit Stem
+           \omit Flag
+           \omit Dots
+           \override NoteHead.font-size = #-3
+           \override Parentheses.font-size = #-2
+         } { \oneVoice \parenthesize $cue }
+       >>
+     #}))
 
+% Replace a source quality mark.  An unmarked chord keeps no letter.
 #(define (aaan-apply-russian-mark scripts canonical)
    (let ((letter (aaan-quality-suffix canonical 'russian))
          (seen #f))
-     (let ((out (map (lambda (script)
-                       (if (and (not seen) (aaan-quality-script? script))
-                           (begin
-                             (set! seen #t)
-                             (aaan-make-symbol-event letter))
-                           script))
-                     scripts)))
-       (if seen
-           out
-           (append out (list (aaan-make-symbol-event letter)))))))
+     (map (lambda (script)
+            (if (and (not seen) (aaan-quality-script? script))
+                (begin
+                  (set! seen #t)
+                  (aaan-make-symbol-event letter))
+                script))
+          scripts)))
 
 % Quality and inversion come from note-event-to-chord-elements, which
 % uses aaan-invert-onto-center.  An unmarked chord reuses that root's
@@ -294,10 +308,17 @@ aaanProtectTitle =
            (list (if cue? (aaan-attach-cue chord root) chord) #f ident)))))
 
 #(define (aaan-event-chord-of music)
-   (if (and (ly:music? music)
-            (eq? (ly:music-property music 'aaan-cue-seq) #t))
-       (last (aaan-prop-list music 'elements))
-       music))
+   (cond
+    ((not (ly:music? music)) #f)
+    ((eq? (ly:music-property music 'name) 'EventChord) music)
+    (else
+     (or (aaan-event-chord-of (let ((el (ly:music-property music 'element)))
+                                (if (ly:music? el) el #f)))
+         (let loop ((els (aaan-prop-list music 'elements)))
+           (if (null? els)
+               #f
+               (or (aaan-event-chord-of (car els))
+                   (loop (cdr els)))))))))
 
 #(define (aaan-prepend-bass music bass-notes)
    (if (null? bass-notes)
@@ -362,12 +383,6 @@ aaanProtectTitle =
       (else
        (list music bass-info run)))))
 
-#(define (aaan-as-elements music)
-   (if (and (ly:music? music)
-            (eq? (ly:music-property music 'aaan-cue-seq) #t))
-       (aaan-prop-list music 'elements)
-       (list music)))
-
 #(define (aaan-convert-sequential music bass-info run)
    (let loop ((items (aaan-prop-list music 'elements))
               (bass bass-info)
@@ -379,7 +394,7 @@ aaanProtectTitle =
            (loop (cdr items)
                  (second step)
                  (third step)
-                 (append (reverse (aaan-as-elements (first step))) acc))))))
+                 (cons (first step) acc))))))
 
 #(define (aaan-convert-simultaneous music bass-info run)
    (let ((walked (map (lambda (e)

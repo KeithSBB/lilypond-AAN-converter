@@ -2,21 +2,26 @@
 \include "aaan-convert.ly"
 
 % <e, a>^"M" keeps the E bass and spells A major on the chord row.
-% The next a is an unmarked repeat of that major, and the start of a run.
+% The next a is an unmarked repeat of that same chord: no second cue,
+% and in Russian no letter, because the source has no mark.
 % m, 7, and dim are the other rows.  d^"M" sits on the middle line.
 % c'^"M" is a lone chord with no root bass before it.
 % a,4 a^"M" is a chord after its root bass.
 % a,_"_" a^"M" is a chord after a counterbass.
-% f^"M" f f^"M" is one run: the cue belongs only on the first.
-% g is unmarked the first time, so it is major.
+% f^"M" f f^"M" is one run.  Russian prints Б, nothing, Б.
+% g is unmarked the first time, so it is major and has no letter.
 % cis is below the middle line, so it stays a bass note.
 % des is on that line, so it is a chord and stays on the line.
+% b^"M" b r b: the rest breaks the run, so the last b has a cue.
+% e^"M" e e, e: the root bass arrives mid-run, so the last e has no cue.
 sample = \absolute {
   <e, a>4^"M" a4 a4^"m" e4^"7" b4^"dim" d4^"M" c'4^"M"
   a,4 a4^"M" a,4_"_" a4^"M"
   f4^"M" f4 f4^"M" g4
   cis4 des4^"M"
   c,4-> r4
+  b4^"M" b4 r4 b4
+  e4^"M" e4 e,4 e4
 }
 
 #(define (pitch->absolute p)
@@ -78,6 +83,30 @@ sample = \absolute {
          (scripts-of music))
     ""))
 
+#(define (find-music pred music)
+   (cond
+    ((not (ly:music? music)) #f)
+    ((pred music) music)
+    (else
+     (or (find-music pred (let ((el (ly:music-property music 'element)))
+                            (if (ly:music? el) el #f)))
+         (let loop ((els (let ((v (ly:music-property music 'elements)))
+                           (if (pair? v) v '()))))
+           (if (null? els)
+               #f
+               (or (find-music pred (car els))
+                   (loop (cdr els)))))))))
+
+#(define (parenthesized-note? music)
+   (and (ly:music? music)
+        (eq? (ly:music-property music 'name) 'NoteEvent)
+        (let ((tweaks (ly:music-property music 'tweaks)))
+          (and (pair? tweaks) (assq 'parenthesized tweaks)))))
+
+#(define (event-chord? music)
+   (and (ly:music? music)
+        (eq? (ly:music-property music 'name) 'EventChord)))
+
 #(define (summarize music)
    (cond
     ((not (ly:music? music)) "")
@@ -104,6 +133,14 @@ sample = \absolute {
     ((eq? (ly:music-property music 'name) 'RestEvent)
      (string-append "r" (duration->number (ly:music-property music 'duration))
                     (format-scripts music)))
+    ((and (eq? (ly:music-property music 'name) 'SimultaneousMusic)
+          (find-music parenthesized-note? music))
+     (let ((cue (find-music parenthesized-note? music))
+           (chord (find-music event-chord? music)))
+       (string-append "cue("
+                      (pitch->absolute (ly:music-property cue 'pitch))
+                      ") "
+                      (if chord (summarize chord) ""))))
     ((or (music-is-of-type? music 'sequential-music)
          (music-is-of-type? music 'simultaneous-music)
          (ly:music? (ly:music-property music 'element))
@@ -149,10 +186,10 @@ sample = \absolute {
      hits))
 
 #(define expected-english
-   "<e, a cis' e'>4^\"M\" <a cis' e'>4 <a c' e'>4^\"m\" <e gis d'>4^\"7\" <b d' f'>4^\"dim\" <d fis a>4^\"M\" <e g c'>4^\"M\" a,4 <a cis' e'>4^\"M\" a,4_\"_\" <a cis' e'>4^\"M\" <f a c'>4^\"M\" <f a c'>4 <f a c'>4^\"M\" <g b d'>4 cis4 <des f aes>4^\"M\" c,4-> r4")
+   "<e, a cis' e'>4^\"M\" <a cis' e'>4 <a c' e'>4^\"m\" <e gis d'>4^\"7\" <b d' f'>4^\"dim\" <d fis a>4^\"M\" <e g c'>4^\"M\" a,4 <a cis' e'>4^\"M\" a,4_\"_\" <a cis' e'>4^\"M\" <f a c'>4^\"M\" <f a c'>4 <f a c'>4^\"M\" <g b d'>4 cis4 <des f aes>4^\"M\" c,4-> r4 <b dis' fis'>4^\"M\" <b dis' fis'>4 r4 <b dis' fis'>4 <e gis b>4^\"M\" <e gis b>4 e,4 <e gis b>4")
 
 #(define expected-russian
-   "grace(a,8) <e, a cis' e'>4^\"Б\" <a cis' e'>4^\"Б\" grace(a,8) <a c' e'>4^\"М\" grace(e,8) <e gis d'>4^\"7\" grace(b,8) <b d' f'>4^\"У\" grace(d,8) <d fis a>4^\"Б\" grace(c8) <e g c'>4^\"Б\" a,4 <a cis' e'>4^\"Б\" a,4_\"В\" grace(a,8) <a cis' e'>4^\"Б\" grace(f,8) <f a c'>4^\"Б\" <f a c'>4^\"Б\" <f a c'>4^\"Б\" grace(g,8) <g b d'>4^\"Б\" cis4 grace(des,8) <des f aes>4^\"Б\" c,4-> r4")
+   "cue(a,) <e, a cis' e'>4^\"Б\" <a cis' e'>4 cue(a,) <a c' e'>4^\"М\" cue(e,) <e gis d'>4^\"7\" cue(b,) <b d' f'>4^\"У\" cue(d,) <d fis a>4^\"Б\" cue(c) <e g c'>4^\"Б\" a,4 <a cis' e'>4^\"Б\" a,4_\"В\" cue(a,) <a cis' e'>4^\"Б\" cue(f,) <f a c'>4^\"Б\" <f a c'>4 <f a c'>4^\"Б\" cue(g,) <g b d'>4 cis4 cue(des,) <des f aes>4^\"Б\" c,4-> r4 cue(b,) <b dis' fis'>4^\"Б\" <b dis' fis'>4 r4 cue(b,) <b dis' fis'>4 cue(e,) <e gis b>4^\"Б\" <e gis b>4 e,4 <e gis b>4")
 
 englishMusic = \aaan-convert \sample
 
