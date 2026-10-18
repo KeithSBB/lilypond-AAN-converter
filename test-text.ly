@@ -3,8 +3,8 @@
 
 % \aaan-text is one alist and one lookup.  The default language is
 % English, so text passes through until \aaanLanguage #'russian.
-% Two of the extra table terms stand in for the rest.  Italian tempo
-% words, including Moderato, are not transliterated.
+% Italian tempo words, including Moderato, are not transliterated.
+% A different rights holder, or a copyright line with no year, passes through.
 
 #(define (markup-strings value)
    (cond
@@ -31,7 +31,10 @@
      ("Moderately" . "Умеренно")
      ("Intro" . "Вступление")
      ("Chorus" . "Припев")
-     ("Arranged by Keith Smith" . "Обработка К. Смита")))
+     ("Arranged by Keith Smith" . "Обработка К. Смита")
+     ("Lively" . "Живо")
+     ("With motion" . "Подвижно")
+     ("Bass" . "Бас")))
 
 \aaanLanguage #'russian
 #(for-each
@@ -50,6 +53,16 @@
               "© Кит Смит, 2026")
 #(expect-text (shown-text "Copyright 2023 Keith Smith")
               "© Кит Смит, 2023")
+#(expect-text (shown-text "Copyright 2026 Ada Lovelace")
+              "Copyright 2026 Ada Lovelace")
+#(expect-text (shown-text "Copyright Keith Smith")
+              "Copyright Keith Smith")
+
+\aaanLanguage #'english
+#(expect-text (shown-text "Bayan") "Bayan")
+#(expect-text (shown-text "Lively") "Lively")
+#(expect-text (shown-text "Copyright 2026-10-1 \"Keith Smith\"")
+              "Copyright 2026-10-1 \"Keith Smith\"")
 
 \header {
   title = "aaan-text"
