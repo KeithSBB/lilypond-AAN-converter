@@ -219,26 +219,25 @@
 % Middle line of the bass staff is D3.  C#3 and lower are bass-row notes.
 % Db3 (same semitone count as C#3, written as a flat) stays on the chord side
 % of the original test, so the alteration check is preserved.
+% AAN writes the bass in the comma octave and the chord row in the
+% octave above.  Middle C is the split: a note below it is a bass button,
+% a note at or above it is a chord button.  The old -11 threshold sat at
+% C-sharp below the staff, so a, e, g, and d, were all spelled as chords
+% and the bass attack vanished.
+#(define aan-bass-split 0)
+
 #(define (is-AAN-chord? note-event)
    (log-message 'debug "is-AAN-chord?: Entered ~a\n" (ly:music-property note-event 'name))
    (if (equal? (ly:music-property note-event 'name) 'NoteEvent)
        (let ((pitch (aan-safe-pitch note-event)))
-         (if (not pitch)
-             #f
-             (let ((note-alteration (ly:pitch-alteration pitch))
-                   (semitones (ly:pitch-semitones pitch)))
-               (or (> semitones -11) (and (= semitones -11) (= note-alteration (/ -1 2)))))))
+         (and pitch (>= (ly:pitch-semitones pitch) aan-bass-split)))
        #f))
 
 #(define (is-AAN-bass? note-event)
    (log-message 'debug "is-AAN-bass?: Entered \n")
    (if (equal? (ly:music-property note-event 'name) 'NoteEvent)
        (let ((pitch (aan-safe-pitch note-event)))
-         (if (not pitch)
-             #f
-             (let ((note-alteration (ly:pitch-alteration pitch))
-                   (semitones (ly:pitch-semitones pitch)))
-               (not (or (> semitones -11) (and (= semitones -11) (= note-alteration (/ -1 2))))))))
+         (and pitch (< (ly:pitch-semitones pitch) aan-bass-split)))
        #f))
 
 #(define (make-rest note-event)
