@@ -166,18 +166,13 @@
          "unknown"
          (ly:music-property (first filtered) 'text))))
 
-% Chord tone above the normalized root (absolute octave -1, the bass-clef
-% chord row).  The letter is the diatonic third, fifth, or seventh; the
-% alteration is whatever makes the semitone count exact.  A major is
-% <a cis' e'>, not the old next-letter spelling <a des e>.
-% semitones . diatonic steps: minor third, major third,
-% diminished fifth, perfect fifth, diminished seventh, minor seventh.
+% Semitones to diatonic steps: minor third, major third,
+% diminished fifth, perfect fifth, minor seventh.
 #(define aaan-interval-steps
    '((3 . 2)
      (4 . 2)
      (6 . 4)
      (7 . 4)
-     (9 . 6)
      (10 . 6)))
 
 #(define (make-pitch-from-refpitch&semitone root-pitch semitone)
@@ -191,14 +186,11 @@
                         (begin
                           (log-message 'warning "make-pitch-from-refpitch&semitone: no diatonic step for ~a semitones\n" semitone)
                           0)))
-              (root (ly:make-pitch -1
-                                   (ly:pitch-notename root-pitch)
-                                   (ly:pitch-alteration root-pitch)))
-              (raw-note (+ (ly:pitch-notename root) step))
-              (oct (+ -1 (quotient raw-note 7)))
+              (raw-note (+ (ly:pitch-notename root-pitch) step))
+              (oct (+ (ly:pitch-octave root-pitch) (quotient raw-note 7)))
               (note (modulo raw-note 7))
               (natural (ly:make-pitch oct note 0))
-              (delta (- (+ (ly:pitch-semitones root) semitone)
+              (delta (- (+ (ly:pitch-semitones root-pitch) semitone)
                         (ly:pitch-semitones natural)))
               (alteration (/ delta 2)))
          (log-message 'debug "make-pitch-from-refpitch&semitone: pitch: octave ~a, notename ~a, alteration ~a\n" oct note alteration)
@@ -208,25 +200,24 @@
    (log-message 'debug "note-event-to-chord-elements: Entered\n")
    (log-message 'debug "note-event-to-chord-elements: chord-name:  ~a\n" chord-name)
    (if (equal? chord-name "unknown")
-       (begin
-         (set! chord-name (search-history note-event))
-         (if (null? chord-name)
-             (error "note-event-to-chord-elements: Undefined chord note and no prior useage")
-             (log-message 'debug "note-event-to-chord-elements: Chord was not defined, but its history was found: ~a\n" chord-name))))
+       (let ((found (search-history note-event)))
+         (set! chord-name (if (null? found) "M" found))
+         (log-message 'debug "note-event-to-chord-elements: quality ~a\n" chord-name)))
    (let ((root-pitch (aaan-safe-pitch note-event)))
      (if (not root-pitch)
          (begin
            (log-message 'warning "note-event-to-chord-elements: no pitch; returning empty\n")
            '())
-         (let* ((root-notename (ly:pitch-notename root-pitch))
-                (root-alteration (ly:pitch-alteration root-pitch))
-                (chord-root-pitch (ly:make-pitch -1 root-notename root-alteration))
+         (let* ((root (ly:make-pitch -1
+                                     (ly:pitch-notename root-pitch)
+                                     (ly:pitch-alteration root-pitch)))
                 (dur (ly:music-property note-event 'duration))
                 (semitone-list (hash-ref aaan-chord-intvl-table chord-name))
-                (pitches (cons chord-root-pitch
-                               (map (lambda (semitone)
-                                      (make-pitch-from-refpitch&semitone root-pitch semitone))
-                                    (if (list? semitone-list) semitone-list '())))))
+                (pitches (aaan-invert-onto-center
+                          (cons root
+                                (map (lambda (semitone)
+                                       (make-pitch-from-refpitch&semitone root semitone))
+                                     (if (list? semitone-list) semitone-list '()))))))
            (log-message 'debug "note-event-to-chord-elements: pitches:\n~a\n" pitches)
            (save-update-history note-event chord-name)
            (map (lambda (pitch)
@@ -236,10 +227,8 @@
                 pitches)))))
 
 % Bass-clef middle line is absolute d (D3).  Noteheads below that line are
-% bass buttons; noteheads on or above it are chord buttons.  Comparison is
-% diatonic, so des (on the D line) is a chord and cis (in the C space) is
-% a bass note.  Middle C is above this line: a semitone split of 0 classifies
-% the whole chord row, d through b, as bass.  <e, a> is then two bass notes.
+% bass buttons; noteheads on or above it are chord buttons.  des is on the
+% line, so it is a chord; cis is in the space below, so it is a bass note.
 #(define aaan-bass-center (ly:make-pitch -1 1 0))
 
 #(define (aaan-diatonic-steps pitch)
@@ -249,6 +238,22 @@
 #(define (aaan-on-or-above-center? pitch)
    (>= (aaan-diatonic-steps pitch)
        (aaan-diatonic-steps aaan-bass-center)))
+
+% Close voicing: while any chord tone sits below the middle line, move
+% that tone up an octave.  C major is <e g c'>.
+#(define (aaan-invert-onto-center pitches)
+   (let loop ((pitches pitches) (guard 12))
+     (call-with-values
+      (lambda ()
+        (partition aaan-on-or-above-center? pitches))
+      (lambda (high low)
+        (if (or (null? low) (<= guard 0))
+            (sort pitches ly:pitch<?)
+            (loop (append high
+                          (map (lambda (p)
+                                 (ly:pitch-transpose p (ly:make-pitch 1 0 0)))
+                               low))
+                  (- guard 1)))))))
 
 #(define (is-AAAN-chord? note-event)
    (and (ly:music? note-event)

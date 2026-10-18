@@ -142,7 +142,7 @@ aaanProtectTitle =
 #(define (aaan-resolve-quality note-event raw)
    (if (equal? raw "unknown")
        (let ((found (search-history note-event)))
-         (if (null? found) "unknown" found))
+         (if (null? found) "M" found))
        raw))
 
 #(define (aaan-format-chord-symbol note-event raw-quality)
@@ -162,7 +162,7 @@ aaanProtectTitle =
 
 % Bass-clef center line is aaan-bass-center (absolute d, D3) from
 % aaan-common.ly.  Bass notes and the root cue stay on or below it.
-% Spelled chord notes stay above it.  The cue is a simultaneous note,
+% Spelled chord notes stay on or above it.  The cue is a simultaneous note,
 % so ledger lines appear and the chord's timing does not change.
 #(define aaan-octave-down (ly:make-pitch -1 0 0))
 #(define aaan-octave-up (ly:make-pitch 1 0 0))
@@ -192,9 +192,9 @@ aaanProtectTitle =
 #(define (aaan-raise-above-center notes)
    (let loop ((notes notes))
      (let ((low (apply min (map (lambda (n)
-                                  (aaan-semitones (ly:music-property n 'pitch)))
+                                  (aaan-diatonic-steps (ly:music-property n 'pitch)))
                                 notes))))
-       (if (> low (aaan-semitones aaan-bass-center))
+       (if (>= low (aaan-diatonic-steps aaan-bass-center))
            notes
            (loop (map (lambda (n)
                         (aaan-with-pitch n (ly:pitch-transpose
