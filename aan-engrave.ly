@@ -356,17 +356,13 @@ aanProtectTitle =
                 (cue (if want-cue
                          (aan-cue-note (ly:music-property (first chord-notes) 'pitch) duration)
                          (aan-skip duration)))
-                ;; Bass and spelled chord share one EventChord so the
-                ;; attack keeps the source duration exactly.  A
-                ;; SimultaneousMusic would take the longer child and
-                ;; shift every later bar.
+                ;; Both children carry the source duration, so the
+                ;; simultaneous cannot outlast the attack it replaces.
                 (main (cond
                        ((and aan-keep-bass (not (null? bass-here)) spelled)
-                        (make-music 'EventChord
-                                    'elements (append
-                                               (list (aan-bass-only bass-here duration))
-                                               (ly:music-property spelled 'elements))
-                                    'articulations (ly:music-property spelled 'articulations)))
+                        (make-music 'SimultaneousMusic
+                                    'elements (list (aan-bass-only bass-here duration)
+                                                    spelled)))
                        (spelled spelled)
                        (aan-keep-bass (aan-bass-only bass-here duration))
                        (else (make-music 'RestEvent 'duration duration)))))
