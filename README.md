@@ -33,7 +33,7 @@ midiChords = \aaan-extract-chords [staccato bool] { ... AAAN music ... }
 ### Key Notation Rules:
 
 * **Staff Position:** Notes written below the middle line (D) of the bass clef staff represent single bass notes (fundamental or counterbass). Notes written on or above the middle line represent chord buttons. 
-* **Counterbass:** A bass note with a down-text underscore script, `_"_"`, is a counterbass. The row is not inferred.
+* **Counterbass:** A bass note with a down-text underscore script, `_"_"`, is a counterbass. The row is not inferred. In English mode the source `_"_"` mark passes through unchanged. In Russian mode it prints as the Cyrillic «В» (U+0412), never Latin B.
 * **Chord Symbols:** A letter or number above the notehead indicates the chord quality:
   
 * **M**: **Major chord**. An unmarked chord note uses the type most recently defined for that chord root earlier in the music, and the first time it appears it is major.
@@ -76,7 +76,7 @@ Accordion chords are always three notes
 
 ### Russian text
 
-`\aaanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. In Russian mode only, it also places a small parenthesized root note (zero duration) under the chord. The cue marks chords whose root bass was not just played or sounded with them, and it also appears when the preceding bass was a counterbass (`_"_"`).
+`\aaanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. Russian chord letters replace source marks only, so an unmarked chord gets no letter. In Russian mode only, it also places a small parenthesized root note (zero duration) under the chord. The cue marks chords whose root bass was not just played or sounded with them, and it also appears when the preceding bass was a counterbass (`_"_"`). One cue covers a run of the same chord (same root and type). The cue goes on the first chord of the run only. A run ends at a different chord, a bass note, or a rest. The cue is written where that root bass is written (Basurmanov p.22). In Russian mode the counterbass mark `_"_"` prints as the Cyrillic «В» (U+0412), never Latin B.
 
 In Russian mode the **AAAN** score is converted to fully spelled out chords with those Russian chord marks and that cue.
 
