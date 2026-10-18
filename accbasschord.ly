@@ -101,7 +101,11 @@
          (log-message 'debug "create-chord-from-chord: new-elements: ~a\n" new-elements)
          (log-message 'debug "create-chord-from-chord: duration:  ~a\n" duration)
          (if (equal? (length new-elements) 0)
-             (make-music 'RestEvent 'duration duration)
+             (if (ly:duration? duration)
+                 (make-music 'RestEvent 'duration duration)
+                 ;; Durationless chord, such as 2.26's <>\noBeam.  A quarter
+                 ;; rest here would shift every later attack.
+                 eventchord)
              (begin
                (log-message 'debug "create-chord-from-chord: eventchord:\n  ~a\n" eventchord)
                (let* ((chord-articu (filter (lambda (elem)
@@ -183,12 +187,17 @@ aan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:
    (let* ((duration (get-event-chord-duration chord))
           (elements (ly:music-property chord 'elements))
           (filtered (filter (lambda (event) (is-AAN-bass? event)) elements)))
-     (cond ((equal? (length filtered) 0) (make-music 'RestEvent 'duration duration))
+     (cond ((equal? (length filtered) 0)
+            (if (ly:duration? duration)
+                (make-music 'RestEvent 'duration duration)
+                chord))
            ((equal? (length filtered) 1) (first filtered))
            ((> (length filtered) 1)
             (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
+            ;; Notes, not the list itself.  maybe-staccato expects music;
+            ;; the final pass in scheme-extract-bass applies staccato.
             (make-music 'EventChord
-                        'elements (maybe-staccato filtered))))))
+                        'elements filtered)))))
 
 #(define (scheme-extract-bass music)
    (log-message 'debug "scheme-extract-bass: Entering\n")

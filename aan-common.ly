@@ -121,14 +121,20 @@
    (log-message 'debug "Clear-history:  Entered\n")
    (set! chord-history '()))
 
+% Duration of a rhythmic event inside an EventChord, or #f when the chord
+% has none.  LilyPond 2.26 writes \autoBeamOff as <>\noBeam: an EventChord
+% whose only element is a beam-forbid event.  Inventing a quarter for that
+% chord inserts time the source does not have.
 #(define (get-event-chord-duration eventchord)
    (let* ((elements (filter ly:music? (ly:music-property eventchord 'elements)))
           (durations (filter ly:duration?
                              (map (lambda (el) (ly:music-property el 'duration))
-                                  elements))))
-     (if (null? durations)
-         (ly:make-duration 2 0)
-         (car durations))))
+                                  elements)))
+          (own (ly:music-property eventchord 'duration)))
+     (cond
+      ((pair? durations) (car durations))
+      ((ly:duration? own) own)
+      (else #f))))
 
 % Text scripts written above the note (^"M", ^"min", ...) are quality tokens.
 #(define (filter-for-chord-names articulations)
@@ -216,15 +222,16 @@
                               'duration dur))
                 pitches)))))
 
-% Middle line of the bass staff is D3.  C#3 and lower are bass-row notes.
-% Db3 (same semitone count as C#3, written as a flat) stays on the chord side
-% of the original test, so the alteration check is preserved.
-% AAN writes the bass in the comma octave and the chord row in the
-% octave above.  Middle C is the split: a note below it is a bass button,
-% a note at or above it is a chord button.  The old -11 threshold sat at
-% C-sharp below the staff, so a, e, g, and d, were all spelled as chords
-% and the bass attack vanished.
-#(define aan-bass-split 0)
+% Middle line of the bass staff is D3.  Notes on or below C#3 (11 semitones
+% under middle C) are bass-row buttons.  Db3 is the same semitone count but
+% is spelled as a flat, and it stays on the chord row.  The chord row is the
+% octave above the comma octave (a, is bass, a is a chord), not middle C:
+% a, e, g, and d are all below middle C and are still chord buttons.
+#(define (aan-chord-row? pitch)
+   (let ((semitones (ly:pitch-semitones pitch))
+         (alteration (ly:pitch-alteration pitch)))
+     (or (> semitones -11)
+         (and (= semitones -11) (= alteration -1/2)))))
 
 #(define (is-AAN-chord? note-event)
    (and (ly:music? note-event)
@@ -233,7 +240,7 @@
                        (ly:music-property note-event 'name))
           (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
                (let ((pitch (aan-safe-pitch note-event)))
-                 (and pitch (>= (ly:pitch-semitones pitch) aan-bass-split)))))))
+                 (and pitch (aan-chord-row? pitch)))))))
 
 #(define (is-AAN-bass? note-event)
    (and (ly:music? note-event)
@@ -241,7 +248,7 @@
           (log-message 'debug "is-AAN-bass?: Entered \n")
           (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
                (let ((pitch (aan-safe-pitch note-event)))
-                 (and pitch (< (ly:pitch-semitones pitch) aan-bass-split)))))))
+                 (and pitch (not (aan-chord-row? pitch))))))))
 
 #(define (make-rest note-event)
    (log-message 'debug "make-rest: Make Rest\n")

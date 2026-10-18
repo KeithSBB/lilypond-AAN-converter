@@ -335,10 +335,13 @@ aanProtectTitle =
    (let* ((elements (ly:music-property event 'elements))
           (chord-notes (filter (lambda (e) (and (ly:music? e) (is-AAN-chord? e))) elements))
           (bass-here (filter (lambda (e) (aan-bass-pitch e)) elements)))
-     ;; \autoBeamOff is an empty chord with a beam-forbid event and no
-     ;; duration.  Replacing it with a rest is what shifted the bar.
+     ;; LilyPond 2.26 spells \autoBeamOff as <>\noBeam: an EventChord with a
+     ;; beam-forbid event and no duration.  A synthesized skip used to be a
+     ;; quarter note, so the cue voice ran a quarter ahead of the source and
+     ;; every later bar moved.  Keep the original event in both voices; its
+     ;; length is zero, and a real <>4 still contributes its own length.
      (if (and (null? chord-notes) (null? bass-here))
-         (list event (aan-skip (get-event-chord-duration event)) #f bass-pitch)
+         (list event (ly:music-deep-copy event) #f bass-pitch)
          (let* ((local-bass (if (null? bass-here)
                                 bass-pitch
                                 (ly:music-property (first bass-here) 'pitch)))
