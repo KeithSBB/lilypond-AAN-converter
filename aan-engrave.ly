@@ -296,11 +296,21 @@ aanProtectTitle =
 
 #(define aan-keep-bass #f)
 
+#(define (aan-with-duration note duration)
+   (let ((copy (ly:music-deep-copy note)))
+     (set! (ly:music-property copy 'duration) duration)
+     copy))
+
 #(define (aan-bass-only bass-here duration)
    (cond
     ((null? bass-here) (make-music 'RestEvent 'duration duration))
-    ((= (length bass-here) 1) (aan-place-bass (first bass-here)))
-    (else (make-music 'EventChord 'elements (map aan-place-bass bass-here)))))
+    ((= (length bass-here) 1)
+     (aan-with-duration (aan-place-bass (first bass-here)) duration))
+    (else
+     (make-music 'EventChord
+                 'elements (map (lambda (n)
+                                  (aan-with-duration (aan-place-bass n) duration))
+                                bass-here)))))
 
 #(define (engrave-note event tied-in bass-pitch)
    (cond
@@ -346,10 +356,17 @@ aanProtectTitle =
                 (cue (if want-cue
                          (aan-cue-note (ly:music-property (first chord-notes) 'pitch) duration)
                          (aan-skip duration)))
+                ;; Bass and spelled chord share one EventChord so the
+                ;; attack keeps the source duration exactly.  A
+                ;; SimultaneousMusic would take the longer child and
+                ;; shift every later bar.
                 (main (cond
                        ((and aan-keep-bass (not (null? bass-here)) spelled)
-                        (make-music 'SimultaneousMusic
-                                    'elements (list (aan-bass-only bass-here duration) spelled)))
+                        (make-music 'EventChord
+                                    'elements (append
+                                               (list (aan-bass-only bass-here duration))
+                                               (ly:music-property spelled 'elements))
+                                    'articulations (ly:music-property spelled 'articulations)))
                        (spelled spelled)
                        (aan-keep-bass (aan-bass-only bass-here duration))
                        (else (make-music 'RestEvent 'duration duration)))))
