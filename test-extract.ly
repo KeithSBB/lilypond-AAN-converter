@@ -39,10 +39,10 @@ flagoff = \absolute { <a, a>4-. }
 
 #(assert-same "bass"
    #{ \aaan-extract-bass \sample #}
-   #{ \absolute { e,4^"M" r4 a,4 r4 r4 r4 e,4 c,4-> <e, a,>4 } #})
+   #{ \absolute { e,4 r4 a,4 r4 r4 r4 e,4 c,4-> <e, a,>4 } #})
 #(assert-same "bass ##t"
    #{ \aaan-extract-bass ##t \sample #}
-   #{ \absolute { e,4^"M"-. r4 a,4-. r4 r4 r4 e,4-. c,4->-. <e, a,>4-. } #})
+   #{ \absolute { e,4-. r4 a,4-. r4 r4 r4 e,4-. c,4->-. <e, a,>4-. } #})
 #(assert-same "chords"
    #{ \aaan-extract-chords \sample #}
    #{ \absolute {
@@ -64,7 +64,7 @@ flagoff = \absolute { <a, a>4-. }
       } #})
 #(assert-same "C bass with <c, c'>"
    #{ \aaan-extract-bass \cfamily #}
-   #{ \absolute { r4 r4 r4 r4 c,4^"M" r4 r4 r4 r4 } #})
+   #{ \absolute { r4 r4 r4 r4 c,4 r4 r4 r4 r4 } #})
 
 #(assert-same "first unmarked is major"
    #{ \aaan-extract-chords \bare #}
@@ -94,6 +94,12 @@ flagoff = \absolute { <a, a>4-. }
 #(assert-same "chord articulation kept, flag off"
    #{ \aaan-extract-chords \flagoff #}
    #{ \absolute { <a cis' e'>4-. } #})
+
+% The type mark stays off the bass voice.  A tie written on the chord stays.
+tied = \absolute { <e, a>4~^"M" <e, a,>4^"M" }
+#(assert-same "tie kept, type mark dropped"
+   #{ \aaan-extract-bass \tied #}
+   #{ \absolute { e,4~ <e, a,>4 } #})
 
 \score {
   \new PianoStaff <<

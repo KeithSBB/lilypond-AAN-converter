@@ -29,10 +29,15 @@
 %
 % English keeps the source chord mark.  Russian replaces a source mark
 % with the Stradella row letter only (Б М 7 У) and does not print a pitch
-% name.  A source chord with no mark gets no letter.  In Russian only, a
-% parenthesized root notehead is stacked under the chord on that chord's
-% beat when its root bass was not just played or sounded with it, including
-% when that bass was a counterbass.  One cue covers a run of the same chord.
+% name.  A source chord with no mark gets no letter.  In Russian only, the
+% first chord of a run gets a zero-duration parenthesized root notehead
+% under that chord, unless its root bass was just played or sounds in the
+% same chord.  A counterbass is not a root bass.  A run is the same button:
+% enharmonic pitch class and type.  Bar lines, ties, and { } do not break a
+% run.  A different chord, a separate bass note, a rest, a skip, a full-bar
+% rest, or the end of a << >> block does.  A bass inside the chord does not
+% break the run; that chord is cued only when it starts a run and the bass
+% is not its root.  The cue takes no time and does not sound.
 % A source counterbass _"_" is printed unchanged in English, and as
 % Cyrillic «В» (U+0412) in Russian.  The row is never inferred.
 % Italian dynamics and Italian navigation (f, fine, D.C.) are not translated.
@@ -178,13 +183,14 @@ aaanProtectTitle =
      (set! (ly:music-property copy 'elements) new-elements)
      copy))
 
-#(define (aaan-pitch-class pitch)
-   (list (ly:pitch-notename pitch) (ly:pitch-alteration pitch)))
+% C# and Db are one button.  Compare semitone class, not name plus accidental.
+#(define (aaan-button-class pitch)
+   (modulo (ly:pitch-semitones pitch) 12))
 
 #(define (aaan-same-pitch-class? left right)
    (and (ly:pitch? left)
         (ly:pitch? right)
-        (equal? (aaan-pitch-class left) (aaan-pitch-class right))))
+        (= (aaan-button-class left) (aaan-button-class right))))
 
 #(define (aaan-quality-script? event)
    (and (ly:music? event)
@@ -229,39 +235,90 @@ aaanProtectTitle =
          (loop (ly:pitch-transpose p aaan-octave-down))
          p)))
 
-#(define (aaan-chord-duration chord)
-   (let ((note (find (lambda (event)
-                       (and (ly:music? event)
-                            (eq? (ly:music-property event 'name) 'NoteEvent)))
-                     (aaan-prop-list chord 'elements))))
-     (if note
-         (ly:music-property note 'duration)
-         (ly:make-duration 2))))
+% The chord stays in the voice that owns the ties, slurs, beams, and
+% \\ stem direction.  A fresh { } would end that voice before the spanner
+% does.  Only the cue is a new voice: a filled notehead of length zero,
+% parenthesized, shifted aside when a bass note a second away would cover
+% it, and silent in MIDI.
+#(define aaan-current-voice-id (make-parameter #f))
+#(define aaan-cues-here (make-parameter 0))
+#(define aaan-voice-serial 0)
 
-% Same beat as the chord, in the bass register, stemless and parenthesized.
-% The two voices share one column, so the cue sits under this chord.
-#(define (aaan-attach-cue chord root)
-   (let ((cue (make-music 'NoteEvent
-                          'pitch (aaan-bass-register root)
-                          'duration (aaan-chord-duration chord))))
+#(define (aaan-next-voice-id)
+   (set! aaan-voice-serial (+ aaan-voice-serial 1))
+   (format #f "aaan~a" aaan-voice-serial))
+
+#(define (aaan-in-voice id music voice-index)
+   (let* ((props (and (integer? voice-index)
+                      (<= 0 voice-index 3)
+                      (context-spec-music (make-voice-props-set voice-index) 'Voice)))
+          (seq (if (music-is-of-type? music 'sequential-music)
+                   music
+                   (make-music 'SequentialMusic 'elements (list music))))
+          (body (if props
+                    (aaan-replace-elements
+                     seq
+                     (cons props (aaan-prop-list seq 'elements)))
+                    seq))
+          (spec (context-spec-music body 'Voice id)))
+     (set! (ly:music-property spec 'create-new) #t)
+     spec))
+
+#(define (aaan-cue-shift bass-notes cue-pitch)
+   (if (any (lambda (note)
+              (let ((p (ly:music-property note 'pitch)))
+                (and (ly:pitch? p)
+                     (<= (abs (- (aaan-diatonic-steps p)
+                                 (aaan-diatonic-steps cue-pitch)))
+                         1))))
+            (if (pair? bass-notes) bass-notes '()))
+       1.5
+       0))
+
+#(define (aaan-cue-voice cue shift)
+   (let ((nudge (cons shift 0)))
      #{
-       <<
-         \new Voice \with {
-           \shiftOff
-           \override NoteColumn.ignore-collision = ##t
-         } { \oneVoice $chord }
-         \new Voice \with {
-           \shiftOff
-           \override NoteColumn.ignore-collision = ##t
-           \override NoteColumn.force-hshift = #0
-           \omit Stem
-           \omit Flag
-           \omit Dots
-           \override NoteHead.font-size = #-3
-           \override Parentheses.font-size = #-2
-         } { \oneVoice \parenthesize $cue }
-       >>
+       \new Voice \with {
+         \remove "Note_performer"
+         \shiftOff
+         \override NoteColumn.ignore-collision = ##t
+         \omit Stem
+         \omit Flag
+         \omit Dots
+         \override NoteHead.font-size = #-3
+         \override NoteHead.extra-spacing-width = #'(+inf.0 . -inf.0)
+         \override NoteHead.extra-offset = #nudge
+         \override Parentheses.font-size = #-2
+         \override Parentheses.extra-spacing-width = #'(+inf.0 . -inf.0)
+         \override Parentheses.extra-offset = #nudge
+         \override Accidental.extra-spacing-width = #'(+inf.0 . -inf.0)
+         \override Accidental.extra-offset = #nudge
+       } { \parenthesize $cue }
      #}))
+
+#(define (aaan-attach-cue chord root bass-notes)
+   (aaan-cues-here (+ (aaan-cues-here) 1))
+   (let* ((cue-pitch (aaan-bass-register root))
+          (shift (aaan-cue-shift bass-notes cue-pitch))
+          (cue (make-music 'NoteEvent
+                           'pitch cue-pitch
+                           'duration (ly:make-duration 2 0 0)))
+          (cue-voice (aaan-cue-voice cue shift))
+          (id (aaan-current-voice-id)))
+     (make-music
+      'SimultaneousMusic
+      'elements (list
+                 (if (string? id)
+                     #{
+                       \context Voice = #id {
+                         \once \override Stem.direction = #UP
+                         $chord
+                       }
+                     #}
+                     #{
+                       { \once \override Stem.direction = #UP $chord }
+                     #})
+                 cue-voice))))
 
 % Replace a source quality mark.  An unmarked chord keeps no letter.
 #(define (aaan-apply-russian-mark scripts canonical)
@@ -283,7 +340,7 @@ aaanProtectTitle =
    (let ((found (search-history note)))
      (if (string? found) found raw)))
 
-#(define (aaan-convert-chord-note note extra bass-info run)
+#(define (aaan-convert-chord-note note extra bass-info run bass-notes)
    (let* ((root (ly:music-property note 'pitch))
           (scripts (append (aaan-prop-list note 'articulations)
                            (if (pair? extra) extra '())))
@@ -291,9 +348,7 @@ aaanProtectTitle =
           (tones (note-event-to-chord-elements note raw))
           (quality (aaan-used-quality note raw))
           (canonical (aaan-canonical-quality quality))
-          (ident (list (ly:pitch-notename root)
-                       (ly:pitch-alteration root)
-                       canonical)))
+          (ident (list (aaan-button-class root) canonical)))
      (if (null? tones)
          (list note bass-info run)
          (let* ((marks (if (eq? aaan-language 'russian)
@@ -302,10 +357,14 @@ aaanProtectTitle =
                 (chord (make-music 'EventChord
                                    'elements tones
                                    'articulations (filter ly:music? marks)))
+                ;; A chord is cued only when it starts a run and its root
+                ;; bass is not already sounding.  A counterbass does not
+                ;; count.  A bass inside this chord does not break the run.
                 (cue? (and (eq? aaan-language 'russian)
                            (not (equal? ident run))
                            (not (aaan-root-sounded? bass-info root)))))
-           (list (if cue? (aaan-attach-cue chord root) chord) #f ident)))))
+           (list (if cue? (aaan-attach-cue chord root bass-notes) chord)
+                 #f ident)))))
 
 #(define (aaan-event-chord-of music)
    (cond
@@ -332,7 +391,7 @@ aaanProtectTitle =
 #(define (aaan-convert-note music bass-info run)
    (cond
     ((is-AAAN-chord? music)
-     (aaan-convert-chord-note music '() bass-info run))
+     (aaan-convert-chord-note music '() bass-info run '()))
     ((is-AAAN-bass? music)
      (list music (aaan-bass-entries (list music) #f) #f))
     (else
@@ -361,7 +420,8 @@ aaanProtectTitle =
                                             (append others
                                                     (aaan-prop-list music 'articulations))
                                             info
-                                            run)))
+                                            run
+                                            bass-notes)))
          (if (pair? (cdr chord-notes))
              (let ((chord (aaan-event-chord-of (first step))))
                (for-each
@@ -383,26 +443,68 @@ aaanProtectTitle =
       (else
        (list music bass-info run)))))
 
-#(define (aaan-convert-sequential music bass-info run)
-   (let loop ((items (aaan-prop-list music 'elements))
-              (bass bass-info)
-              (run run)
-              (acc '()))
-     (if (null? items)
-         (list (aaan-replace-elements music (reverse acc)) bass run)
-         (let ((step (aaan-convert-walk (car items) bass run)))
-           (loop (cdr items)
-                 (second step)
-                 (third step)
-                 (cons (first step) acc))))))
+% voice-index is 0..3 for a \\ part (voiceOne..voiceFour).  #f is an
+% ordinary { } block: its end does not break a run.  A cued chord has to
+% name this voice so a tie or slur that starts on it can finish later.
+#(define (aaan-convert-sequential music bass-info run . rest)
+   (let ((voice-index (if (pair? rest) (car rest) #f))
+         (voice-id (aaan-next-voice-id)))
+     (parameterize ((aaan-current-voice-id voice-id)
+                    (aaan-cues-here 0))
+       (let loop ((items (aaan-prop-list music 'elements))
+                  (bass bass-info)
+                  (run run)
+                  (acc '()))
+         (if (null? items)
+             (let ((body (aaan-replace-elements music (reverse acc))))
+               (list (if (or (> (aaan-cues-here) 0) (integer? voice-index))
+                         (aaan-in-voice voice-id body voice-index)
+                         body)
+                     bass run))
+             (let ((step (aaan-convert-walk (car items) bass run)))
+               (loop (cdr items)
+                     (second step)
+                     (third step)
+                     (cons (first step) acc))))))))
+
+#(define (aaan-voice-separator? music)
+   (and (ly:music? music)
+        (eq? (ly:music-property music 'name) 'VoiceSeparator)))
+
+#(define (aaan-split-voices elements)
+   (let loop ((els elements) (current '()) (parts '()))
+     (cond
+      ((null? els) (reverse (cons (reverse current) parts)))
+      ((aaan-voice-separator? (car els))
+       (loop (cdr els) '() (cons (reverse current) parts)))
+      (else (loop (cdr els) (cons (car els) current) parts)))))
+
+#(define (aaan-part-sequential items)
+   (if (and (= (length items) 1)
+            (music-is-of-type? (car items) 'sequential-music))
+       (car items)
+       (make-music 'SequentialMusic 'elements items)))
 
 #(define (aaan-convert-simultaneous music bass-info run)
-   (let ((walked (map (lambda (e)
-                        (first (aaan-convert-walk e bass-info run)))
-                      (aaan-prop-list music 'elements))))
-     ;; A split is its own passage.  The music after it does not continue
-     ;; a chord run or a bass from before the split.
-     (list (aaan-replace-elements music walked) #f #f)))
+   (let ((elements (aaan-prop-list music 'elements)))
+     (if (any aaan-voice-separator? elements)
+         ;; \\ assigns stem direction by part.  Naming each part keeps that
+         ;; direction and gives a cued chord a voice its slur can return to.
+         (let ((parts (aaan-split-voices elements)))
+           (list (make-music
+                  'SimultaneousMusic
+                  'elements (map (lambda (items index)
+                                   (first (aaan-convert-sequential
+                                           (aaan-part-sequential items)
+                                           bass-info run index)))
+                                 parts
+                                 (iota (length parts))))
+                 #f #f))
+         (let ((walked (map (lambda (e)
+                              (first (aaan-convert-walk e bass-info run)))
+                            elements)))
+           ;; The end of << >> breaks a run.  A { } boundary does not.
+           (list (aaan-replace-elements music walked) #f #f)))))
 
 #(define (aaan-convert-volta music bass-info run)
    (let ((body (ly:music-property music 'element))
@@ -449,6 +551,8 @@ aaanProtectTitle =
     ((not (ly:music? music)) (list music bass-info run))
     ((music-is-of-type? music 'note-event)
      (aaan-convert-note music bass-info run))
+    ((aaan-is-bar-check? music)
+     (list music bass-info run))
     ((aaan-rhythmic-rest? music)
      (list music #f #f))
     ;; EventChord is also simultaneous-music.  It must be matched first.

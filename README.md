@@ -33,7 +33,7 @@ midiChords = \aaan-extract-chords [staccato bool] { ... AAAN music ... }
 ### Key Notation Rules:
 
 * **Staff Position:** Notes written below the middle line (D) of the bass clef staff represent single bass notes (fundamental or counterbass). Notes written on or above the middle line represent chord buttons. 
-* **Counterbass:** A bass note with a down-text underscore script, `_"_"`, is a counterbass. The row is not inferred. `\aaan-convert` prints that source mark unchanged in English mode, and as Cyrillic «В» (U+0412) in Russian mode.
+* **Counterbass:** A bass note with a down-text underscore script, `_"_"`, is a counterbass. The row is not inferred.
 * **Chord Symbols:** A letter or number above the notehead indicates the chord quality:
   
 * **M**: **Major chord**. An unmarked chord note uses the type most recently defined for that chord root earlier in the music, and the first time it appears it is major.
