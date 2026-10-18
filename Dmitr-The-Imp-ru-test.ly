@@ -1,10 +1,10 @@
 \version "2.24.0"
 \include "articulate.ly"
-\include "aan-engrave.ly"
+\include "aaan-convert.ly"
 #(use-modules (lily accreg))
 
 % Title stays English in both scores.  Register it so a copy in the music is skipped.
-\aanProtectTitle "Dmitr The Imp"
+\aaanProtectTitle "Dmitr The Imp"
 
 % Define a variable to hold the formatted date:
 date = #(strftime "%d-%m-%Y" (localtime (current-time)))
@@ -141,14 +141,14 @@ fis,4 fis^"m" cis, fis|cis,4 cis'^"7" gis, cis |fis,4 fis^"m" cis, fis|fis,4 fis
 
 }
 
-MIDI_Chords = \aan-extract-chords ##t \left
-MIDI_Bass = \aan-extract-bass ##t \left
+MIDI_Chords = \aaan-extract-chords ##t \left
+MIDI_Bass = \aaan-extract-bass ##t \left
 
 
 \score {
   \new PianoStaff <<
     \new Staff = "Treble" \right
-    \new Staff = "AAN" { \clef bass \left }
+    \new Staff = "AAAN" { \clef bass \left }
   >>
   \layout { }
 
@@ -156,8 +156,8 @@ MIDI_Bass = \aan-extract-bass ##t \left
 
 % Russian engraving starts on its own page.
 \pageBreak
-\aanLanguage #'russian
-RU_Left = \aan-engrave \left
+\aaanLanguage #'russian
+RU_Left = \aaan-engrave \left
 
 \score {
   \new PianoStaff <<
@@ -166,8 +166,8 @@ RU_Left = \aan-engrave \left
   >>
   \header {
     title = "Dmitr The Imp"
-    instrument = \aan-text "Bayan"
-    composer = \aan-text "Composed by Keith Smith"
+    instrument = \aaan-text "Bayan"
+    composer = \aaan-text "Composed by Keith Smith"
   }
   \layout { }
 
