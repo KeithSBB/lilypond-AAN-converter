@@ -143,10 +143,13 @@ addStacc = #(define-music-function (music) (ly:music?)
 
 % Do not descend into containers handled by the walker itself.
 #(define (should-skip-descend_into? event)
-   (log-message 'debug "\nshould-skip-desend_into?: Entered ~a\n" (ly:music-property event 'name))
-   (not (or (music-is-of-type? event 'event-chord)
-            (music-is-of-type? event 'note-event)
-            (music-is-of-type? event 'simultaneous-music))))
+   (and (ly:music? event)
+        (begin
+          (log-message 'debug "\nshould-skip-desend_into?: Entered ~a\n"
+                       (ly:music-property event 'name))
+          (not (or (music-is-of-type? event 'event-chord)
+                   (music-is-of-type? event 'note-event)
+                   (music-is-of-type? event 'simultaneous-music))))))
 
 #(define (scheme-extract-chords music)
    (log-message 'debug "scheme-extract-chords: Entered\n")
