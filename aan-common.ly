@@ -227,18 +227,21 @@
 #(define aan-bass-split 0)
 
 #(define (is-AAN-chord? note-event)
-   (log-message 'debug "is-AAN-chord?: Entered ~a\n" (ly:music-property note-event 'name))
-   (if (equal? (ly:music-property note-event 'name) 'NoteEvent)
-       (let ((pitch (aan-safe-pitch note-event)))
-         (and pitch (>= (ly:pitch-semitones pitch) aan-bass-split)))
-       #f))
+   (and (ly:music? note-event)
+        (begin
+          (log-message 'debug "is-AAN-chord?: Entered ~a\n"
+                       (ly:music-property note-event 'name))
+          (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
+               (let ((pitch (aan-safe-pitch note-event)))
+                 (and pitch (>= (ly:pitch-semitones pitch) aan-bass-split)))))))
 
 #(define (is-AAN-bass? note-event)
-   (log-message 'debug "is-AAN-bass?: Entered \n")
-   (if (equal? (ly:music-property note-event 'name) 'NoteEvent)
-       (let ((pitch (aan-safe-pitch note-event)))
-         (and pitch (< (ly:pitch-semitones pitch) aan-bass-split)))
-       #f))
+   (and (ly:music? note-event)
+        (begin
+          (log-message 'debug "is-AAN-bass?: Entered \n")
+          (and (equal? (ly:music-property note-event 'name) 'NoteEvent)
+               (let ((pitch (aan-safe-pitch note-event)))
+                 (and pitch (< (ly:pitch-semitones pitch) aan-bass-split)))))))
 
 #(define (make-rest note-event)
    (log-message 'debug "make-rest: Make Rest\n")
