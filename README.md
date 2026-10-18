@@ -1,101 +1,114 @@
-# lilypond-AAN-converter
-## Scheme code to convert American Accordion Notation music into fully spelled out accordion chords.
+# lilypond-AAAN-converter
+## Scheme code to convert American Accordion Association Notation music into fully spelled out accordion chords.
 
-American Accordion Notation (AAN, also called AAA) is a bass-clef shorthand for Stradella left hand. This repository turns that shorthand into separate bass and chord voices.
+American Accordion Association Notation ( AAAN) is a bass-clef shorthand for Stradella left hand. This repository turns that shorthand into separate bass and chord voices.  It also provides a conversion to fully spelled out chords and optional translation into Russian
 
-Two includes, two jobs:
+One include:
 
 | Include | Use |
 | --- | --- |
-| `accbasschord.ly` | MIDI. Optional staccato, because left-hand accordion playing often defaults to it. |
-| `aan-engrave.ly` | Print. Spelled chords plus chord symbols. Articulations come only from the source. |
+| `aaan-convert.ly` | Print. Spelled chords plus chord symbols. Articulations come only from the source. |
 
-`aan-engrave.ly` includes the MIDI functions, so a print file can still call `\aan-extract-bass` and `\aan-extract-chords`.
+| Function | Description|
+| --- | --- |
+|\aaan-extract-bass| Extracts bass notes from **AAAN** leaving rests for chords|
+|\aaan-extract-chords| Extracts **AAAN** chords, spells them out using lilypond chord (<>), and leaves rests for bass notes|
+|\aaan-convert| Replaces **AAAN** chord notes with fully spelled out chords.  Bass notes are passed through.  If \aaanLanguage #'russian is set then replaces chord symbols with russian equivalent and adds cue marks.|
+|\aaan-text| If \aaanLanguage #'russian then text converted to Russian, otherwise text is passed through unaltered|
 
+**Example**
 ```lilypond
-\include "accbasschord.ly"
+\include "aaan-convert.ly"
+\aaanLanguage #'russian
+inRussian = \aaan-convert { ... AAAN music ... }
 
-\aan-extract-bass [staccato bool] { ... AAN music ... }
-\aan-extract-chords [staccato bool] { ... AAN music ... }
+midiBass = \aaan-extract-bass [staccato bool] { ... AAAN music ... }
+midiChords = \aaan-extract-chords [staccato bool] { ... AAAN music ... }
 ```
 
-## American Accordion Notation
+## American Accordionists Association Notation
 
-Notes on or below C♯3 (below the middle line of the bass staff) are bass-row notes. Notes on the middle line and above, annotated with a quality, are Stradella chord buttons.
+**American Accordionists Association  Notation (AAAN)** is the standard system for notating music for the piano accordion, approved in 1938.  It is designed to simplify the Stradella bass system by representing complex left-hand chords with a single note and a symbol.
 
-* maj: root, major 3rd, 5th
-* min: root, minor 3rd, 5th
-* 7: root, major 3rd, minor 7th (the 5th is omitted)
-* dim: root, minor 3rd, diminished 7th
-* An augmented sonority is a 7 chord with the augmented 5th in the bass
+### Key Notation Rules:
 
-A omitted quality reuses the last quality written for that pitch class.
+* **Staff Position:** Notes written below the middle line (B) of the bass clef staff represent single bass notes (fundamental or counter-bass). Notes written on or above the middle line represent chord buttons. 
+* **Chord Symbols:** A letter or number above the notehead indicates the chord quality:
+  
+* **M** (or no letter): **Major chord**.
+  
+* **m**: **Minor chord.**
+  
+* **7**: **Dominant 7th chord**.
+  
+* **d or dim**: **Diminished chord**.
+  
+**Visual Example:** Two **C** notes, one above and one below the middle line in a chord(**<C, C'>^"M"**) with an **M** above it indicates playing the **C bass button** and the **C major chord button** simultaneously.
 
-### Syntax examples
-
-C major chord: `c'^"M"` or `c'^"maj"`
-
-D minor chord: `d^"m"` or `d^"min"`
-
-E dominant seventh: `e^"7"`
-
-G diminished: `g^"d"`, `g^"dim"`, or `g^"o"`
+This notation allows musicians to read accompaniment patterns efficiently, as a single symbol triggers the full chord on the left-hand buttons. While common in the **US**, other regions may use different methods, such as writing out all chord notes or using lead sheet notation. 
 
 ### MIDI staccato
+
+In accordion music staccato is usually implied and not written out.
 
 `##t` applies staccato to the extracted MIDI voice. It does not belong on an engraved staff. Omit it, or use the engraving functions, to keep the source articulation.
 
 ```lilypond
-\aan-extract-bass ##t { ... AAN music ... }
-\aan-extract-chords ##t { ... AAN music ... }
+\aaan-extract-bass ##t { ... AAAN music ... }
+\aaan-extract-chords ##t { ... AAAN music ... }
 
-\aan-extract-bass { ... AAN music ... }
+\aaan-extract-bass { ... AAAN music ... }
 ```
 
-## Engraving
+## Conversion for Engraving
+Calling \aaan-convert on **AAAN** music replaces the upper bass staff chord notes with a fully spelled out accordion chord. If the **AAAN** chord note was inside a chord already (usually with a lower staff bass note) then the fully spelled out chord notes are simply added to the existing chord with the base.   If `\aanLanguage #'english` or is omitted then any notation to the **AAAN** is added to the fully spelled out chord.  Everything else is passed through including the lower bass clef staff bass notes.  
 
-`\aan-engrave-bass` keeps bass-row notes and rests the chord row. `\aan-engrave-chords` spells the chord row in bass clef and writes a chord symbol above each chord attack. A tied continuation does not get a second symbol. Written staccato, accents, and other text stay; the quality token (`"M"`, `"min"`, `"7"`, `"dim"`) is replaced by the symbol.
+**Accordion chords**
 
-A counterbass is marked in the source as a down-text underscore, `e_"_"`. Engraving rewrites that mark to `e_"B"`. No other bass is treated as a counterbass.
+Accordion chords are always three notes
 
-When the bass pitch class differs from the chord root, a small parenthesized notehead is printed on that root's staff position. The notehead is centered in the parentheses. It is a note in a second voice whose length matches the bass voice with skips, so it does not add time. LilyPond draws the ledger line because the mark is a note head. Chord stems stay in the main voice.
+* **M**: <root, major third, fifth> inversion applied to keep all chord notes above middle staff line
+* **m**: <root, minor third, fifth> inversion applied to keep all chord notes above middle staff line
+* **7**: <root, major third>, minor seventh> inversion applied to keep all chord notes above middle staff line
+* **d**: <root, minor third, diminished fifth> inversion applied to keep all chord notes above middle staff line
 
+
+### Russian text
+
+`\aanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. It also adds cue marks (`(o)`) where appropriate
+
+In Russian mode the **AAAN** score is converted to fully spelled out chords with Russian language chord marks and a **(o)** cur mark placed under chords that are not preceded, or in  a chord with, the chord root note. 
+
+**Note**: This is a simple replacement of the **AAAN** lilypond music similar to what \aaan-engrave-chords performs only bass notes are not replaced with rests and are included in the fully spelled out chord if the bass note and upper staff **AAAN** note(s) were composed as a chord (play bass and chord simultaneously).  The **AAAN's** chord symbol is simply replaced with the Russian equivalent.  The only additional addition is the cue marks being added.  The cue marks have no duration and thus have no impact on the other notes in the AAA Notation
+
+**\aan-text**
+This function translates certain words to Russian if `\aanLanguage #'russian` is set, otherwise it just passes through the text.
+Except for the copyright, translation can be a simple text look-up:
+
+|English|Russian|
+| --- | --- |
+|Bayan|Баян|
+|Composed by Keith Smith|Музыка: Кит Смит|
+|Moderato|Умеренно|
+|Intro|Интро|
+|[*any additional common terms*]|[*Russian equivalents*]|
+|Copyright  2026-10-1 "Keith Smith"|Авторское право © 2026 «Keith Smith»| 
+
+**Note:** only year used in copyright translation
+
+
+Dynamics and Italian navigation stay Italian (`f`, `p`, `fine`, `D.C.`, `rit.`). Prose passed through `\aaan-text`  can still change (`Bayan` → `Баян`, `Moderato` → `Умеренно`). 
 ```lilypond
-\include "aan-engrave.ly"
+\include "aaan-convert.ly"
 
-\score {
-  <<
-    \new Staff { \clef bass \aan-engrave-bass \left }
-    \new Staff { \clef bass \aan-engrave-chords \left }
-  >>
-  \layout { }
-}
-```
-
-English symbols are lead-sheet names from the written root: `C`, `Cm`, `G7`, `Cdim`. Flats and sharps follow the AAN spelling (`ees^"M"` is `Eb`).
-
-### Russian text, title excepted
-
-`\aanLanguage #'russian` switches the chord mark to the Stradella row letter only, placed over the spelled chord: **Б** major, **М** minor, **7**, **У** diminished. Pitch names are not printed. `7sus2` is not a Stradella row; using it as a quality token is an error.
-
-In Russian mode the row symbol is written only on the first occurrence of a given chord (same root pitch class and quality) in a measure, and on the first occurrence of a new chord after a change. Repeated identical chords within the same measure omit the symbol. The tracking resets at each bar check (`|`).
-
-Dynamics and Italian navigation stay Italian (`f`, `p`, `fine`, `D.C.`, `rit.`). Prose passed through `\aan-text` or `\aan-translate` can still change (`Bayan` → `Баян`, `Moderato` → `Умеренно`). The song title is not translated. Write it as a literal `\header` field. If the same string also appears in the music, register it with `\aanProtectTitle`.
-
-```lilypond
-\include "aan-engrave.ly"
-\aanProtectTitle "Dmitr The Imp"
-\aanLanguage #'russian
+\aaanLanguage #'russian  % defaults to english if not present
 
 \header {
   title = "Dmitr The Imp"          % not translated
-  instrument = \aan-text "Bayan"   % Баян
-  composer = \aan-text "Composed by Keith Smith"
+  instrument = \aaan-text "Bayan"   % Баян
+  composer = \aaan-text "Composed by Keith Smith"  % Музыка: Кит Смит
 }
 
-russianChords = \aan-translate \aan-engrave-chords \left
+russianLeft = \aaan-convert \left
 ```
 
-Set the language before the engraving call. A music variable already built in English keeps the symbols it was built with.
-
-`testsong-engrave.ly` is the print fixture. English symbols are `A7`, `C`, `Adim`, `A`. Russian symbols are `7`, `Б`, `У`, `Б`. The source `e,_"_"` engraves as `e_"B"`. A chord whose bass is a different pitch class has its root notehead parenthesized. `fine` stays Italian, and the title is unchanged.
