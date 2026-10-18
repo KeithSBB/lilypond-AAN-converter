@@ -33,7 +33,7 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
     %subsubtitle = "Subsubtitle"
       % The following fields are evenly spread on one line
       % the field "instrument" also appears on following pages
-    instrument = \aaan-text "Bayan"
+    instrument = \markup \with-color #grey \aaan-text "Bayan"
     %poet = "Poet"
     composer = \aaan-text "Composed by Keith Smith"
       % The following fields are placed at opposite ends of the same line

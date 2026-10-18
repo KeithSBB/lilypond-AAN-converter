@@ -16,40 +16,6 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
     markup-system-spacing.basic-distance = 15
     top-margin = 0.5\in
     bottom-margin = 0.5\in
-    % The book title block is not printed.  Each score prints its own
-    % header, which is where \aaan-text belongs.  Copyright stays in the
-    % book header because that is the field the page footer reads.
-    bookTitleMarkup = \markup \null
-    scoreTitleMarkup = \markup {
-      \override #'(baseline-skip . 3.5)
-      \column {
-        \fill-line { \fromproperty #'header:dedication }
-        \override #'(baseline-skip . 3.5)
-        \column {
-          \fill-line {
-            \huge \larger \larger \bold
-            \fromproperty #'header:title
-          }
-          \fill-line {
-            \large \bold
-            \fromproperty #'header:subtitle
-          }
-          \fill-line {
-            \smaller \bold
-            \fromproperty #'header:subsubtitle
-          }
-          \fill-line {
-            \fromproperty #'header:poet
-            { \large \bold \fromproperty #'header:instrument }
-            \fromproperty #'header:composer
-          }
-          \fill-line {
-            \fromproperty #'header:meter
-            \fromproperty #'header:arranger
-          }
-        }
-      }
-    }
     % print-first-page-number = ##t
 %     oddHeaderMarkup = \markup \null
 %     evenHeaderMarkup = \markup \null
@@ -198,7 +164,6 @@ MIDI_Bass = \aaan-extract-bass ##t \left
 
 % Russian engraving starts on its own page.
 \pageBreak
-\aaanLanguage #'russian
 RU_Left = \aaan-convert \left
 
 \score {

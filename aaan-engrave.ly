@@ -518,27 +518,24 @@ aaan-engrave-chords =
 % \aaan-text.  One alist, one lookup.  In Russian mode a table string
 % returns its Russian value.  English mode, and any string not in the
 % table, pass through unchanged.  Italian dynamics and navigation are not
-% table entries, so they stay Italian, and unlisted text is not warned.
+% table entries, so they stay Italian.
 %
-% Copyright is the one non-lookup case.  The year comes from the input
-% and the rights holder stays Keith Smith:
-%   Copyright <year or YYYY-M-D> "Keith Smith"
-%   Copyright <year> Keith Smith
-%   -> © Кит Смит, <year>
+% Copyright is the one non-lookup case: the first 4-digit year in the
+% string is kept when the rights holder is Keith Smith.
 % ---------------------------------------------------------------------------
 
 #(define aaan-text-dictionary
    '(("Bayan" . "Баян")
      ("Composed by Keith Smith" . "К. Смит")
-     ("Moderato" . "Умеренно")
+     ("Moderately" . "Умеренно")
      ("Intro" . "Вступление")
      ("Slowly" . "Медленно")
      ("Unhurried" . "Не спеша")
      ("Leisurely" . "Неторопливо")
      ("Moderately fast" . "Умеренно скоро")
-     ("Lively" . "Подвижно")
+     ("Lively" . "Живо")
+     ("With motion" . "Подвижно")
      ("Animated" . "Оживлённо")
-     ("Brisk" . "Живо")
      ("Fast" . "Быстро")
      ("Very fast" . "Очень быстро")
      ("Calmly" . "Спокойно")
@@ -553,46 +550,40 @@ aaan-engrave-chords =
      ("Chorus" . "Припев")
      ("Variation" . "Вариация")
      ("Instrumental break" . "Отыгрыш")
-     ("Arranged by Keith Smith" . "Обработка К. Смита")))
-
-#(define (aaan-ascii-digit? char)
-   (and (char<=? #\0 char) (char<=? char #\9)))
-
-#(define (aaan-month-day? text)
-   (let ((hyphen (string-index text #\-)))
-     (and hyphen
-          (> hyphen 0)
-          (< hyphen (- (string-length text) 1))
-          (string-every aaan-ascii-digit? (substring text 0 hyphen))
-          (string-every aaan-ascii-digit? (substring text (+ hyphen 1)))
-          (not (string-index (substring text (+ hyphen 1)) #\-)))))
-
-#(define (aaan-date-year date)
-   (and (>= (string-length date) 4)
-        (string-every aaan-ascii-digit? (substring date 0 4))
-        (or (= (string-length date) 4)
-            (and (>= (string-length date) 6)
-                 (char=? (string-ref date 4) #\-)
-                 (aaan-month-day? (substring date 5))))
-        (substring date 0 4)))
+     ("Arranged by Keith Smith" . "Обработка К. Смита")
+     ("Bass" . "Бас")))
 
 #(define (aaan-copyright-translation text)
-   (let ((mark "Copyright"))
-     (and (string? text)
-          (string-prefix? mark text)
-          (> (string-length text) (string-length mark))
-          (char-whitespace? (string-ref text (string-length mark)))
-          (let* ((rest (string-trim (substring text (string-length mark))
-                                    char-whitespace?))
-                 (date-end (string-index rest char-whitespace?)))
-            (and date-end
-                 (let ((year (aaan-date-year (substring rest 0 date-end)))
-                       (name (string-trim (substring rest date-end)
-                                         char-whitespace?)))
-                   (and year
-                        (or (string=? name "\"Keith Smith\"")
-                            (string=? name "Keith Smith"))
-                        (string-append "© Кит Смит, " year))))))))
+   ;; Keith Smith is the only rights holder with an approved Russian rendering.
+   (define (first-year)
+     (let ((len (string-length text)))
+       (let loop ((i 0))
+         (cond
+          ((> (+ i 4) len) #f)
+          ((and (string-every char-numeric? (substring text i (+ i 4)))
+                (or (zero? i)
+                    (not (char-numeric? (string-ref text (- i 1)))))
+                (or (= (+ i 4) len)
+                    (not (char-numeric? (string-ref text (+ i 4))))))
+           (substring text i (+ i 4)))
+          (else (loop (+ i 1)))))))
+   (define (letter-words)
+     (let loop ((chars (string->list text)) (word '()) (words '()))
+       (cond
+        ((and (null? chars) (null? word)) (reverse words))
+        ((or (null? chars) (not (char-alphabetic? (car chars))))
+         (loop (if (null? chars) '() (cdr chars))
+               '()
+               (if (null? word)
+                   words
+                   (cons (list->string (reverse word)) words))))
+        (else (loop (cdr chars) (cons (car chars) word) words)))))
+   (and (string? text)
+        (let ((year (first-year)))
+          (and year
+               (member (letter-words)
+                       '(("Keith" "Smith") ("Copyright" "Keith" "Smith")))
+               (string-append "© Кит Смит, " year)))))
 
 #(define (aaan-text-lookup text)
    (if (or (not (string? text))
