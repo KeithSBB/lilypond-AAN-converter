@@ -66,18 +66,15 @@
           (notename (ly:pitch-notename pitch))
           (alteration (ly:pitch-alteration pitch)))
      (log-message 'debug "create-chord-from-note: articulations: ~a, pitch: notename ~a, alteration ~a\n" note-articu notename alteration)
-     (let ((filtered (filter-for-chord-names note-articu)))
-       (log-message 'debug "create-chord-from-note: filtered articulations: ~a\n" filtered)
-       (let* ((chord-name (if (null? filtered) "unknown" (ly:music-property (first filtered) 'text)))
-              (root-pitch (ly:music-property event 'pitch))
-              (root-notename (ly:pitch-notename root-pitch))
-              (elements (note-event-to-chord-elements event chord-name)))
-         (log-message 'debug "create-chord-from-note: Creating chord '~a' with root ~a, elements: ~a\n" chord-name root-notename elements)
-         (let ((newchord (make-music 'EventChord
-                                     'elements elements
-                                     'articulations note-articu)))
-           (log-message 'debug "create-chord-from-note: result: ~a\n" newchord)
-           newchord)))))
+     (let* ((chord-name (aaan-quality-token note-articu))
+            (root-notename (ly:pitch-notename pitch))
+            (elements (note-event-to-chord-elements event chord-name)))
+       (log-message 'debug "create-chord-from-note: Creating chord '~a' with root ~a, elements: ~a\n" chord-name root-notename elements)
+       (let ((newchord (make-music 'EventChord
+                                   'elements elements
+                                   'articulations note-articu)))
+         (log-message 'debug "create-chord-from-note: result: ~a\n" newchord)
+         newchord))))
 
 % Replace an AAAN EventChord (bass note + chord note, quality on the chord)
 % with a spelled chord.  A chord with no chord-row note becomes a rest.
@@ -86,9 +83,7 @@
    (let* ((chord-elements (ly:music-property eventchord 'elements))
           (duration (get-event-chord-duration eventchord)))
      (log-message 'debug "create-chord-from-chord: chord-elements:\n ~a\n" chord-elements)
-     (let ((filtered (filter-for-chord-names chord-elements)))
-       (log-message 'debug "create-chord-from-chord: filtered:\n ~a\n" filtered)
-       (let* ((chord-name (if (null? filtered) "unknown" (ly:music-property (first filtered) 'text)))
+     (let* ((chord-name (aaan-quality-token chord-elements))
               (note-elements (filter (lambda (event)
                                        (and (ly:music? event) (is-AAAN-chord? event)))
                                      (event-chord-notes eventchord)))
@@ -113,22 +108,38 @@
                                  'elements new-elements
                                  'articulations chord-articu)))
                  (log-message 'debug "create-chord-from-chord:  result:\n ~a\n" newchord)
-                 (ly:music-deep-copy newchord))))))))
+                 (ly:music-deep-copy newchord)))))))
 
 #(define (make-script x)
    (make-music 'ArticulationEvent
                'articulation-type x))
 
+#(define (aaan-has-articulation? music articulation)
+   (let ((events (append (filter ly:music? (ly:music-property music 'articulations))
+                         (filter ly:music? (ly:music-property music 'elements)))))
+     (any (lambda (event)
+            (and (eq? (ly:music-property event 'name) 'ArticulationEvent)
+                 (eq? (ly:music-property event 'articulation-type) articulation)))
+          events)))
+
 #(define (add-script m x)
    (case (ly:music-property m 'name)
-     ((NoteEvent) (set! (ly:music-property m 'articulations)
-                        (append (ly:music-property m 'articulations)
-                                (list (make-script x))))
-                  m)
-     ((EventChord) (set! (ly:music-property m 'elements)
-                         (append (ly:music-property m 'elements)
-                                 (list (make-script x))))
-                   m)
+     ((NoteEvent)
+      (if (aaan-has-articulation? m x)
+          m
+          (begin
+            (set! (ly:music-property m 'articulations)
+                  (append (ly:music-property m 'articulations)
+                          (list (make-script x))))
+            m)))
+     ((EventChord)
+      (if (aaan-has-articulation? m x)
+          m
+          (begin
+            (set! (ly:music-property m 'elements)
+                  (append (ly:music-property m 'elements)
+                          (list (make-script x))))
+            m)))
      (else #f)))
 
 #(define (add-staccato m)
@@ -186,12 +197,18 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
           (filtered (filter (lambda (event) (is-AAAN-bass? event)) elements)))
      (cond ((equal? (length filtered) 0) (make-music 'RestEvent 'duration duration))
            ((equal? (length filtered) 1) (first filtered))
-           ;; filtered is a list of notes.  maybe-staccato walks music and
-           ;; crashes on that list.  The caller adds staccato to the chord.
-           ((> (length filtered) 1)
-            (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
-            (make-music 'EventChord
-                        'elements filtered)))))
+           (else
+            (let ((marks (filter (lambda (event)
+                                   (and (ly:music? event)
+                                        (not (music-is-of-type? event 'note-event))))
+                                 elements))
+                  (arts (filter ly:music? (ly:music-property chord 'articulations))))
+              (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
+              (let ((kept (make-music 'EventChord
+                                      'elements (append filtered marks))))
+                (if (pair? arts)
+                    (set! (ly:music-property kept 'articulations) arts))
+                kept))))))
 
 #(define (scheme-extract-bass music)
    (log-message 'debug "scheme-extract-bass: Entering\n")
@@ -218,7 +235,4 @@ aaan-extract-bass = #(define-music-function (staccato music) ((boolean? #f) ly:m
                       (if (boolean? staccato)
                           (set! make-staccato staccato)
                           (set! make-staccato #f))
-                      ;; Once, on the finished music.  scheme-extract-bass is
-                      ;; also used on each voice of a simultaneous, and
-                      ;; applying staccato there would mark those notes twice.
                       (maybe-staccato (scheme-extract-bass music)))

@@ -140,7 +140,7 @@ aaanProtectTitle =
 #(define (aaan-resolve-quality note-event raw)
    (if (equal? raw "unknown")
        (let ((found (search-history note-event)))
-         (if (null? found) "unknown" found))
+         (if (null? found) "M" found))
        raw))
 
 #(define (aaan-format-chord-symbol note-event raw-quality)
@@ -158,7 +158,7 @@ aaanProtectTitle =
                'direction 1
                'aaan-generated #t))
 
-% Spelled chord tones sit on or above the bass-clef middle line (absolute d).
+% Spelled chord tones sit on or above aaan-bass-center (absolute d).
 % The Russian cue is a grace note: its main-time length is zero, so the
 % bar does not move.  A main-time duration of zero is not engraved.
 #(define aaan-octave-down (ly:make-pitch -1 0 0))
@@ -216,8 +216,9 @@ aaanProtectTitle =
                     (aaan-same-pitch-class? (car item) root)))
              info)))
 
-% Bass-button pitch for this chord root: the octave strictly below the
-% middle line.  D on the line steps down to d,; C below the line stays c.
+% Bass-button pitch for this chord root.  Staff position comes from
+% aaan-on-or-above-center? against aaan-bass-center, not from semitones:
+% des is on the middle line and steps down, cis is below it and stays.
 #(define (aaan-bass-register pitch)
    (let loop ((p (ly:make-pitch -1
                                 (ly:pitch-notename pitch)
