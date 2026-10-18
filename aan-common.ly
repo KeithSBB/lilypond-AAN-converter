@@ -61,6 +61,8 @@
 
 % ---------------------------------------------------------------------------
 % Stradella qualities.  Keys are the AAN text tokens accepted on a chord note.
+% 7sus2 is not a Stradella row.  A quality token of exactly "7sus2" is an error.
+% Parenthetical annotations such as ^"(Re7sus2)" are plain text and are left alone.
 % ---------------------------------------------------------------------------
 
 #(define aan-chord-intvl-table (make-hash-table))
@@ -77,7 +79,6 @@
 #(hash-set! aan-chord-intvl-table "dim" aan-dim-intvls)
 #(hash-set! aan-chord-intvl-table "d" aan-dim-intvls)
 #(hash-set! aan-chord-intvl-table "o" aan-dim-intvls)
-#(hash-set! aan-chord-intvl-table "7sus2" (list 2 7 10))
 
 #(define chord-intvl-table aan-chord-intvl-table)
 
@@ -149,6 +150,16 @@
                  articulations))))
 
 #(define (aan-quality-token articulations)
+   ;; 7sus2 is not a Stradella row.  Reject it as a quality token.
+   ;; Parenthetical text such as "(Re7sus2)" is not equal to "7sus2" and is left alone.
+   (for-each
+    (lambda (a)
+      (if (and (ly:music? a)
+               (eq? (ly:music-property a 'name) 'TextScriptEvent)
+               (equal? (ly:music-property a 'direction) 1)
+               (equal? (ly:music-property a 'text) "7sus2"))
+          (error "aan-quality-token: \"7sus2\" is not a Stradella row. Use M, m, 7, or dim, and put any 7sus2 annotation in parentheses.")))
+    (if (pair? articulations) articulations '()))
    (let ((filtered (filter-for-chord-names articulations)))
      (if (null? filtered)
          "unknown"
