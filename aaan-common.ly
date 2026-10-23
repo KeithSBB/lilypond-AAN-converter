@@ -81,8 +81,6 @@
 #(hash-set! aaan-chord-intvl-table "d" aaan-dim-intvls)
 #(hash-set! aaan-chord-intvl-table "o" aaan-dim-intvls)
 
-#(define chord-intvl-table aaan-chord-intvl-table)
-
 #(define chord-keys
    (map car (hash-map->list (lambda (key value) (cons key value)) aaan-chord-intvl-table)))
 
@@ -143,22 +141,8 @@
 
 % Text scripts written above the note (^"M", ^"min", ...) are quality tokens.
 #(define (filter-for-chord-names articulations)
-   (log-message 'debug "filter-for-chord-names: Entered \n")
-   (if (null? articulations)
-       (begin
-         (log-message 'debug "filter-for-chord-names: articulations are empty\n")
-         articulations)
-       (begin
-         (log-message 'debug "filter-for-chord-names: articulations are not empty\n")
-         (filter (lambda (articulation)
-                   (let ((type (ly:music-property articulation 'name))
-                         (direction (ly:music-property articulation 'direction))
-                         (text (ly:music-property articulation 'text)))
-                     (and (equal? type 'TextScriptEvent)
-                          (equal? direction 1)
-                          (string? text)
-                          (any (lambda (x) (string=? text x)) chord-keys))))
-                 articulations))))
+   (filter aaan-quality-mark?
+           (if (pair? articulations) articulations '())))
 
 #(define (aaan-quality-token articulations)
    ;; 7sus2 is not a Stradella row.  Reject it as a quality token.
@@ -249,13 +233,20 @@
    (>= (aaan-diatonic-steps pitch)
        (aaan-diatonic-steps aaan-bass-center)))
 
-% Close voicing.  Spelled tones are built from octave -1, so a tone below
-% the middle line is at most one octave below it.  One pass is enough.
-% C major is <e g c'>.
+% Lowest close voicing on or above G3 (absolute g).  Spelled tones are
+% built from octave -1, so a tone below g is within one octave of it.
+% One pass is enough.  C major is <g c' e'>, F# major is <ais cis' fis'>,
+% and C7 is <bes c' e'>.  Button split stays at aaan-bass-center (D3).
+#(define aaan-voicing-floor (ly:make-pitch -1 4 0))
+
+#(define (aaan-on-or-above-floor? pitch)
+   (>= (ly:pitch-semitones pitch)
+       (ly:pitch-semitones aaan-voicing-floor)))
+
 #(define (aaan-invert-onto-center pitches)
    (call-with-values
     (lambda ()
-      (partition aaan-on-or-above-center? pitches))
+      (partition aaan-on-or-above-floor? pitches))
     (lambda (high low)
       (sort (append high
                     (map (lambda (p)
@@ -287,12 +278,3 @@
                  'duration (if (ly:duration? duration)
                                duration
                                (ly:make-duration 2 0)))))
-
-#(define (aaan-event-has-tie? music)
-   (let* ((arts (ly:music-property music 'articulations))
-          (elems (filter ly:music? (ly:music-property music 'elements)))
-          (all (append (if (pair? arts) arts '()) elems)))
-     (any (lambda (a)
-            (and (ly:music? a)
-                 (eq? (ly:music-property a 'name) 'TieEvent)))
-          all)))

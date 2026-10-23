@@ -21,7 +21,7 @@ testnotes = \absolute {<<{<a, a>4^"7" c,8 r8 ees,4 ges,4}\\{r8 c'8^"M" a2^"dim" 
     \new Staff = "Expected chords" \with {
         instrumentName = "Exp Chords"
         shortInstrumentName = "Chords"
-      } { \clef bass << { <a cis' g'>4-.^"7" r8 r8 r4 r4 } \\ { r8 <e g c'>8-.^"M" <a c' ees'>2-.^"dim" r8 r8 } >> }
+      } { \clef bass << { <a cis' g'>4-.^"7" r8 r8 r4 r4 } \\ { r8 <g c' e'>8-.^"M" <a c' ees'>2-.^"dim" r8 r8 } >> }
     \new Staff = "Bass"  \with {
         instrumentName = "Bass"
         shortInstrumentName = "Bass"

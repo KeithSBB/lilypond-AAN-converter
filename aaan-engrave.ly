@@ -19,9 +19,9 @@
 %
 % Print converter.  \aaan-convert replaces each AAAN chord note (on or above
 % the bass-clef middle line, absolute d) with a three-note accordion chord,
-% inverted so every chord tone sits on or above that line.  A bass note in
-% the same chord stays put: <e, a>^"M" becomes <e, a cis' e'>.  Lone bass
-% notes and everything else pass through.
+% the lowest inversion in which every note is on or above G3 (absolute g).
+% A bass note in the same chord stays put: <e, a>^"M" becomes <e, a cis' e'>.
+% Lone bass notes and everything else pass through.
 %
 %        \aaan-convert { ... AAAN music ... }
 %        \aaanLanguage #'english     % default
@@ -33,8 +33,6 @@
 % Russian cue rule.
 % A source counterbass _"_" is printed unchanged in English, and as
 % Cyrillic «В» (U+0412) in Russian.  The row is never inferred.
-% Italian dynamics and Italian navigation (f, fine, D.C.) are not translated.
-% The song title is never translated.
 
 \version "2.24.4"
 
@@ -43,46 +41,11 @@
 % 'english or 'russian.  Read when an engraving function runs.
 #(define aaan-language 'english)
 
-% Last Russian chord identity in the current measure: (notename alteration quality) or #f
-#(define aaan-last-ru-identity #f)
-
-% Exact title string.  Compared after trimming.  Not translated.
-#(define aaan-song-title "")
-#(define aaan-protected-titles '())
-
 aaanLanguage =
 #(define-void-function (lang) (symbol?)
    (if (memq lang '(english russian))
        (set! aaan-language lang)
        (ly:warning "aaanLanguage: expected #'english or #'russian, got ~a" lang)))
-
-aaanProtectTitle =
-#(define-void-function (title) (string?)
-   (set! aaan-song-title title)
-   (set! aaan-protected-titles (cons title aaan-protected-titles)))
-
-% ---------------------------------------------------------------------------
-% Chord-symbol spelling.  English lead-sheet symbols, or bayan textbook
-% symbols: pitch name + Б / М / 7 / У.
-% ---------------------------------------------------------------------------
-
-#(define aaan-en-pitch-names '("C" "D" "E" "F" "G" "A" "B"))
-#(define aaan-ru-pitch-names '("До" "Ре" "Ми" "Фа" "Соль" "Ля" "Си"))
-
-#(define (aaan-alteration-suffix alteration language)
-   (cond
-    ((= alteration 0) "")
-    ((= alteration 1/2) (if (eq? language 'russian) "-диез" "#"))
-    ((= alteration -1/2) (if (eq? language 'russian) "-бемоль" "b"))
-    ((= alteration 1) (if (eq? language 'russian) "-дубль-диез" "##"))
-    ((= alteration -1) (if (eq? language 'russian) "-дубль-бемоль" "bb"))
-    (else (format #f "~a" alteration))))
-
-#(define (aaan-format-pitch pitch language)
-   (let ((names (if (eq? language 'russian) aaan-ru-pitch-names aaan-en-pitch-names))
-         (notename (ly:pitch-notename pitch)))
-     (string-append (list-ref names notename)
-                    (aaan-alteration-suffix (ly:pitch-alteration pitch) language))))
 
 #(define (aaan-canonical-quality raw)
    (cond
@@ -92,63 +55,18 @@ aaanProtectTitle =
     ((member raw '("dim" "d" "o")) 'diminished)
     (else 'unknown)))
 
-#(define (aaan-quality-suffix canonical language)
-   (if (eq? language 'russian)
-       (case canonical
-         ((major) "Б")
-         ((minor) "М")
-         ((dominant) "7")
-         ((diminished) "У")
-         (else "?"))
-       (case canonical
-         ((major) "")
-         ((minor) "m")
-         ((dominant) "7")
-         ((diminished) "dim")
-         (else "?"))))
+#(define (aaan-quality-suffix canonical)
+   (case canonical
+     ((major) "Б")
+     ((minor) "М")
+     ((dominant) "7")
+     ((diminished) "У")
+     (else "?")))
 
 #(define (aaan-is-bar-check? music)
    (and (ly:music? music)
         (or (music-is-of-type? music 'bar-check)
             (eq? (ly:music-property music 'name) 'BarCheck))))
-
-#(define (aaan-should-emit-symbol? note-event raw-quality tied-in)
-   (if (or tied-in (not (eq? aaan-language 'russian)))
-       (not tied-in)
-       (let ((pitch (ly:music-property note-event 'pitch)))
-         (if (not (ly:pitch? pitch))
-             (begin
-               (log-message 'warning
-                            "aaan-should-emit-symbol?: no pitch on ~a (name ~a); skipping symbol\n"
-                            note-event
-                            (ly:music-property note-event 'name))
-               #f)
-             (let* ((quality (aaan-resolve-quality note-event raw-quality))
-                    (canonical (aaan-canonical-quality quality))
-                    (ident (list (ly:pitch-notename pitch)
-                                 (ly:pitch-alteration pitch)
-                                 canonical)))
-               (if (or (not aaan-last-ru-identity)
-                       (not (equal? ident aaan-last-ru-identity)))
-                   (begin
-                     (set! aaan-last-ru-identity ident)
-                     #t)
-                   #f))))))
-
-#(define (aaan-resolve-quality note-event raw)
-   (if (equal? raw "unknown")
-       (let ((found (search-history note-event)))
-         (if (null? found) "M" found))
-       raw))
-
-#(define (aaan-format-chord-symbol note-event raw-quality)
-   (let* ((quality (aaan-resolve-quality note-event raw-quality))
-          (canonical (aaan-canonical-quality quality))
-          (pitch (ly:music-property note-event 'pitch)))
-     (if (eq? aaan-language 'russian)
-         (aaan-quality-suffix canonical 'russian)
-         (string-append (aaan-format-pitch pitch 'english)
-                        (aaan-quality-suffix canonical 'english)))))
 
 #(define (aaan-make-symbol-event text)
    (make-music 'TextScriptEvent
@@ -162,23 +80,15 @@ aaanProtectTitle =
    (let ((v (ly:music-property music sym)))
      (if (pair? v) (filter ly:music? v) '())))
 
-#(define (aaan-generated-text? event)
-   (and (ly:music? event)
-        (eq? (ly:music-property event 'aaan-generated) #t)))
-
 #(define (aaan-replace-elements music new-elements)
    (let ((copy (ly:music-deep-copy music)))
      (set! (ly:music-property copy 'elements) new-elements)
      copy))
 
-% C# and Db are one button.  Compare semitone class, not name plus accidental.
-#(define (aaan-button-class pitch)
-   (modulo (ly:pitch-semitones pitch) 12))
-
 #(define (aaan-same-pitch-class? left right)
    (and (ly:pitch? left)
         (ly:pitch? right)
-        (= (aaan-button-class left) (aaan-button-class right))))
+        (= (aaan-history-key left) (aaan-history-key right))))
 
 #(define (aaan-counterbass-mark? event)
    (and (ly:music? event)
@@ -190,6 +100,39 @@ aaanProtectTitle =
    (any aaan-counterbass-mark?
         (append (aaan-prop-list music 'articulations)
                 (aaan-prop-list music 'elements))))
+
+#(define (aaan-ve-event event)
+   (if (and (eq? aaan-language 'russian)
+            (aaan-counterbass-mark? event))
+       (let ((copy (ly:music-deep-copy event)))
+         (set! (ly:music-property copy 'text) "В")
+         copy)
+       event))
+
+% Rewrite _"_" on a bass note or a bass chord.  The mark may sit on the
+% note or on the chord.  Callers read the original "_" first when they
+% need to know the note is a counterbass.
+#(define (aaan-with-counterbass music)
+   (if (or (not (eq? aaan-language 'russian)) (not (ly:music? music)))
+       music
+       (let ((els (aaan-prop-list music 'elements)))
+         (if (not (or (aaan-has-counterbass? music)
+                      (any (lambda (e)
+                             (and (music-is-of-type? e 'note-event)
+                                  (aaan-has-counterbass? e)))
+                           els)))
+             music
+             (let ((copy (ly:music-deep-copy music)))
+               (set! (ly:music-property copy 'articulations)
+                     (map aaan-ve-event (aaan-prop-list copy 'articulations)))
+               (set! (ly:music-property copy 'elements)
+                     (map (lambda (e)
+                            (if (and (ly:music? e)
+                                     (music-is-of-type? e 'note-event))
+                                (aaan-with-counterbass e)
+                                (aaan-ve-event e)))
+                          (aaan-prop-list copy 'elements)))
+               copy)))))
 
 #(define (aaan-bass-entries notes chord-marked?)
    (map (lambda (n)
@@ -218,7 +161,7 @@ aaanProtectTitle =
 
 #(define aaan-current-voice-id (make-parameter #f))
 #(define aaan-cues-here (make-parameter 0))
-#(define aaan-slash-voice (make-parameter #f))
+#(define aaan-voice-index (make-parameter #f))
 #(define aaan-voice-serial 0)
 
 #(define (aaan-next-voice-id)
@@ -241,113 +184,34 @@ aaanProtectTitle =
      (set! (ly:music-property spec 'create-new) #t)
      spec))
 
-#(define (aaan-cue-shift bass-notes cue-pitch)
-   (if (any (lambda (note)
-              (let ((p (ly:music-property note 'pitch)))
-                (and (ly:pitch? p)
-                     (<= (abs (- (aaan-diatonic-steps p)
-                                 (aaan-diatonic-steps cue-pitch)))
-                         1))))
-            (if (pair? bass-notes) bass-notes '()))
-       1.5
-       0))
+% One notehead off the stem side, still under the chord.  An up stem sits
+% on the right, so the cue moves left; a down stem sits on the left, so
+% the cue moves right.  \\ sets the direction (even voice index up, odd
+% down).  Otherwise this is LilyPond's default, down when the outer staff
+% positions sum to zero or more.  Stem direction is not set here.
+#(define aaan-notehead-width 1.3)
 
-#(define (aaan-grob-name g)
-   (if (ly:grob? g)
-       (assq-ref (ly:grob-property g 'meta) 'name)
-       #f))
+#(define (aaan-stem-direction pitches)
+   (let ((idx (aaan-voice-index)))
+     (if (integer? idx)
+         (if (odd? idx) -1 1)
+         (let ((pos (filter number?
+                           (map (lambda (p)
+                                  (if (ly:pitch? p)
+                                      (- (aaan-diatonic-steps p)
+                                         (aaan-diatonic-steps aaan-bass-center))
+                                      #f))
+                                pitches))))
+           (if (or (null? pos)
+                   (>= (+ (apply min pos) (apply max pos)) 0))
+               -1
+               1)))))
 
-% Ink box in staff spaces, including extra-offset.  #f when there is no stencil.
-#(define (aaan-ink-box g)
-   (let ((stil (ly:grob-property g 'stencil)))
-     (if (not (ly:stencil? stil))
-         #f
-         (let ((sx (ly:stencil-extent stil X))
-               (sy (ly:stencil-extent stil Y)))
-           (if (or (interval-empty? sx) (interval-empty? sy))
-               #f
-               (let* ((sys (ly:grob-system g))
-                      (off (ly:grob-property g 'extra-offset '(0 . 0)))
-                      (dx (if (pair? off) (car off) 0))
-                      (dy (if (pair? off) (cdr off) 0))
-                      (rx (ly:grob-relative-coordinate g sys X))
-                      (ry (ly:grob-relative-coordinate g sys Y)))
-                 (list (+ rx (car sx) dx)
-                       (+ rx (cdr sx) dx)
-                       (+ ry (car sy) dy)
-                       (+ ry (cdr sy) dy))))))))
+#(define (aaan-cue-shift pitches)
+   (* -1 (aaan-stem-direction pitches) aaan-notehead-width))
 
-#(define (aaan-x-gap left right obst d)
-   (max (- (car obst) (+ right d))
-        (- (+ left d) (cadr obst))))
-
-% Smallest shift that leaves `gap` staff spaces between the cue and every
-% stem, flag, or accidental at the cue's height.  A shift to the right is
-% preferred when it is about as short, matching the bass-cue nudge.
-#(define (aaan-clear-shift left right y0 y1 obstacles gap)
-   (let* ((close (filter (lambda (o)
-                           (> (- (min y1 (cadddr o))
-                                 (max y0 (caddr o)))
-                              -0.02))
-                         obstacles))
-          (cands (cons 0
-                       (apply append
-                              (map (lambda (o)
-                                     (list (- (car o) gap right)
-                                           (- (+ (cadr o) gap) left)))
-                                   close))))
-          (good (filter (lambda (d)
-                          (and (<= (abs d) 2.5)
-                               (every (lambda (o)
-                                        (>= (aaan-x-gap left right o d)
-                                            (- gap 0.015)))
-                                      close)))
-                        cands)))
-     (if (null? good)
-         0
-         (let* ((sorted (sort good (lambda (a b) (< (abs a) (abs b)))))
-                (best (car sorted))
-                (limit (+ (abs best) 0.5))
-                (rightward (filter (lambda (d) (<= -0.001 d limit)) good)))
-           (if (null? rightward) best (apply min rightward))))))
-
-% Parentheses are parented to the cue notehead, so moving the notehead
-% moves the parentheses with it.
-#(define (aaan-translate-cue! g d)
-   (let ((heads (ly:grob-object g 'elements)))
-     (if (ly:grob-array? heads)
-         (for-each
-          (lambda (head)
-            (ly:grob-translate-axis! head d X)
-            (let ((acc (ly:grob-object head 'accidental-grob)))
-              (if (ly:grob? acc)
-                  (ly:grob-translate-axis! acc d X))))
-          (ly:grob-array->list heads)))))
-
-#(define (aaan-clear-slash-cue g)
-   (let ((box (aaan-ink-box g)))
-     (if box
-         (let* ((sys (ly:grob-system g))
-                (all (ly:grob-array->list (ly:grob-object sys 'all-elements)))
-                (obstacles
-                 (filter-map
-                  (lambda (e)
-                    (and (memq (aaan-grob-name e) '(Stem Flag Accidental))
-                         (aaan-ink-box e)))
-                  all))
-                (d (aaan-clear-shift (car box) (cadr box)
-                                     (caddr box) (cadddr box)
-                                     obstacles 0.15)))
-           (if (not (zero? d))
-               (aaan-translate-cue! g d))))))
-
-% A \\ cue sits between the other voice's stem, flag, or accidental.
-% The parenthesis is drawn narrow enough to fit in that gap, then shifted.
 #(define (aaan-cue-voice cue shift)
-   (let ((nudge (cons shift 0))
-         (slash? (aaan-slash-voice))
-         (paren-size (if (aaan-slash-voice) -5 -2))
-         (paren-pad (if (aaan-slash-voice) -0.15 0.2)))
+   (let ((nudge (cons shift 0)))
      #{
        \new Voice \with {
          \remove "Note_performer"
@@ -359,12 +223,10 @@ aaanProtectTitle =
          \override NoteHead.font-size = #-3
          \override NoteHead.extra-spacing-width = #'(+inf.0 . -inf.0)
          \override NoteHead.extra-offset = #nudge
-         \override Parentheses.font-size = #paren-size
-         \override Parentheses.padding = #paren-pad
+         \override Parentheses.font-size = #-2
+         \override Parentheses.padding = #0.2
          \override Parentheses.extra-spacing-width = #'(+inf.0 . -inf.0)
          \override Parentheses.extra-offset = #nudge
-         \override Parentheses.after-line-breaking =
-           #(lambda (g) (if slash? (aaan-clear-slash-cue g)))
          \override Accidental.extra-spacing-width = #'(+inf.0 . -inf.0)
          \override Accidental.extra-offset = #nudge
        } { \parenthesize $cue }
@@ -373,7 +235,15 @@ aaanProtectTitle =
 #(define (aaan-attach-cue chord root bass-notes)
    (aaan-cues-here (+ (aaan-cues-here) 1))
    (let* ((cue-pitch (aaan-bass-register root))
-          (shift (aaan-cue-shift bass-notes cue-pitch))
+          (pitches (append (map (lambda (n) (ly:music-property n 'pitch))
+                                (if (pair? bass-notes) bass-notes '()))
+                           (map (lambda (e) (ly:music-property e 'pitch))
+                                (filter (lambda (e)
+                                          (and (ly:music? e)
+                                               (eq? (ly:music-property e 'name)
+                                                    'NoteEvent)))
+                                        (aaan-prop-list chord 'elements)))))
+          (shift (aaan-cue-shift pitches))
           (cue (make-music 'NoteEvent
                            'pitch cue-pitch
                            'duration (ly:make-duration 2 0 0)))
@@ -389,7 +259,7 @@ aaanProtectTitle =
 
 % Replace a source quality mark.  An unmarked chord keeps no letter.
 #(define (aaan-apply-russian-mark scripts canonical)
-   (let ((letter (aaan-quality-suffix canonical 'russian))
+   (let ((letter (aaan-quality-suffix canonical))
          (seen #f))
      (map (lambda (script)
             (if (and (not seen) (aaan-quality-mark? script))
@@ -399,23 +269,20 @@ aaanProtectTitle =
                 script))
           scripts)))
 
-% Quality and inversion come from note-event-to-chord-elements, which
-% uses aaan-invert-onto-center.  An unmarked chord reuses that root's
-% history, and the first one is major.  Low chord tones move up an
-% octave until every one is on or above aaan-bass-center.
 #(define (aaan-used-quality note raw)
    (let ((found (search-history note)))
-     (if (string? found) found raw)))
+     (if (null? found) raw found)))
 
 #(define (aaan-convert-chord-note note extra bass-info run bass-notes)
    (let* ((root (ly:music-property note 'pitch))
-          (scripts (append (aaan-prop-list note 'articulations)
-                           (if (pair? extra) extra '())))
+          (scripts (map aaan-ve-event
+                        (append (aaan-prop-list note 'articulations)
+                                (if (pair? extra) extra '()))))
           (raw (aaan-quality-token scripts))
           (tones (note-event-to-chord-elements note raw))
           (quality (aaan-used-quality note raw))
           (canonical (aaan-canonical-quality quality))
-          (ident (list (aaan-button-class root) canonical)))
+          (ident (list (aaan-history-key root) canonical)))
      (if (null? tones)
          (list note bass-info run)
          (let* ((marks (if (eq? aaan-language 'russian)
@@ -451,7 +318,9 @@ aaanProtectTitle =
        music
        (let ((chord (aaan-event-chord-of music)))
          (set! (ly:music-property chord 'elements)
-               (append (map ly:music-deep-copy bass-notes)
+               (append (map (lambda (n)
+                              (aaan-with-counterbass (ly:music-deep-copy n)))
+                            bass-notes)
                        (aaan-prop-list chord 'elements)))
          music)))
 
@@ -460,7 +329,9 @@ aaanProtectTitle =
     ((is-AAAN-chord? music)
      (aaan-convert-chord-note music '() bass-info run '()))
     ((is-AAAN-bass? music)
-     (list music (aaan-bass-entries (list music) #f) #f))
+     (list (aaan-with-counterbass music)
+           (aaan-bass-entries (list music) #f)
+           #f))
     (else
      (list music bass-info run))))
 
@@ -504,7 +375,9 @@ aaanProtectTitle =
                 (cdr chord-notes))))
          (list (aaan-prepend-bass (first step) bass-notes) #f (third step))))
       ((pair? bass-notes)
-       (list music (aaan-bass-entries bass-notes chord-marked?) #f))
+       (list (aaan-with-counterbass music)
+             (aaan-bass-entries bass-notes chord-marked?)
+             #f))
       ((any aaan-rhythmic-rest? elements)
        (list music #f #f))
       (else
@@ -533,7 +406,8 @@ aaanProtectTitle =
          (aaan-walk-items music bass-info run)
          (let ((voice-id (aaan-next-voice-id)))
            (parameterize ((aaan-current-voice-id voice-id)
-                          (aaan-cues-here 0))
+                          (aaan-cues-here 0)
+                          (aaan-voice-index voice-index))
              (let ((step (aaan-walk-items music bass-info run)))
                (list (if (or (> (aaan-cues-here) 0) (integer? voice-index))
                          (aaan-in-voice voice-id (first step) voice-index)
@@ -556,23 +430,22 @@ aaanProtectTitle =
 #(define (aaan-convert-simultaneous music bass-info run)
    (let ((elements (aaan-prop-list music 'elements)))
      (if (any aaan-voice-separator? elements)
-         (parameterize ((aaan-slash-voice #t))
-           (let ((parts (aaan-split-voices elements)))
-             (list (make-music
-                    'SimultaneousMusic
-                    'elements (map (lambda (items index)
-                                     (let ((part
-                                            (if (and (= (length items) 1)
-                                                     (music-is-of-type? (car items)
-                                                                        'sequential-music))
-                                                (car items)
-                                                (make-music 'SequentialMusic
-                                                            'elements items))))
-                                       (first (aaan-convert-sequential
-                                               part bass-info run index))))
-                                   parts
-                                   (iota (length parts))))
-                   #f #f)))
+         (let ((parts (aaan-split-voices elements)))
+           (list (make-music
+                  'SimultaneousMusic
+                  'elements (map (lambda (items index)
+                                   (let ((part
+                                          (if (and (= (length items) 1)
+                                                   (music-is-of-type? (car items)
+                                                                      'sequential-music))
+                                              (car items)
+                                              (make-music 'SequentialMusic
+                                                          'elements items))))
+                                     (first (aaan-convert-sequential
+                                             part bass-info run index))))
+                                 parts
+                                 (iota (length parts))))
+                 #f #f))
          (let ((walked (map (lambda (e)
                               (first (aaan-convert-walk e bass-info run)))
                             elements)))
@@ -639,63 +512,15 @@ aaanProtectTitle =
     (else
      (aaan-convert-container music bass-info run))))
 
-% Source counterbass is a down-text underscore.  English prints it
-% unchanged.  Russian prints Cyrillic VE (U+0412), never Latin B.
-#(define (aaan-rewrite-counterbass-walk music)
-   (cond
-    ((not (ly:music? music)) music)
-    ((aaan-counterbass-mark? music)
-     (let ((copy (ly:music-deep-copy music)))
-       (set! (ly:music-property copy 'text) "В")
-       (set! (ly:music-property copy 'aaan-generated) #t)
-       copy))
-    (else
-     (let ((copy (ly:music-deep-copy music)))
-       (let ((el (ly:music-property copy 'element)))
-         (if (ly:music? el)
-             (set! (ly:music-property copy 'element)
-                   (aaan-rewrite-counterbass-walk el))))
-       (let ((els (ly:music-property copy 'elements)))
-         (if (pair? els)
-             (set! (ly:music-property copy 'elements)
-                   (map aaan-rewrite-counterbass-walk els))))
-       (let ((arts (ly:music-property copy 'articulations)))
-         (if (pair? arts)
-             (set! (ly:music-property copy 'articulations)
-                   (map aaan-rewrite-counterbass-walk arts))))
-       copy))))
-
-#(define (aaan-rewrite-counterbass music)
-   (if (eq? aaan-language 'russian)
-       (aaan-rewrite-counterbass-walk music)
-       music))
-
-aaan-engrave-bass =
-#(define-music-function (music) (ly:music?)
-   (let ((previous make-staccato))
-     (set! make-staccato #f)
-     (let ((result (scheme-extract-bass music)))
-       (set! make-staccato previous)
-       (aaan-rewrite-counterbass result))))
-
 aaan-convert =
 #(define-music-function (music) (ly:music?)
    (clear-history)
-   (set! aaan-last-ru-identity #f)
-   (let ((step (aaan-convert-walk (ly:music-deep-copy music) #f #f)))
-     (aaan-rewrite-counterbass (first step))))
-
-% The split chord engraver is no longer a separate walker.  Print goes
-% through \aaan-convert.  The name stays until the later dead-code unit.
-aaan-engrave-chords =
-#(define-music-function (music) (ly:music?)
-   #{ \aaan-convert $music #})
+   (first (aaan-convert-walk (ly:music-deep-copy music) #f #f)))
 
 % ---------------------------------------------------------------------------
 % \aaan-text.  One alist, one lookup.  In Russian mode a table string
 % returns its Russian value.  English mode, and any string not in the
-% table, pass through unchanged.  Italian dynamics and navigation are not
-% table entries, so they stay Italian.
+% table, pass through unchanged.
 %
 % Copyright is the one non-lookup case.  It translates only when the only
 % words are [Copyright] Keith Smith; the year is the first 4-digit number
@@ -771,60 +596,7 @@ aaan-engrave-chords =
            (aaan-copyright-translation text)
            text)))
 
-#(define (aaan-title-exception? text)
-   (or (and (string? text) (string=? text aaan-song-title))
-       (any (lambda (title) (and (string? title) (string=? text title)))
-            aaan-protected-titles)))
-
-#(define (aaan-translate-string text)
-   (if (not (string? text))
-       text
-       (if (or (aaan-title-exception? text)
-               (aaan-title-exception? (string-trim text)))
-           text
-           (aaan-text-lookup text))))
-
-#(define (aaan-translate-value val)
-   (cond
-    ((string? val) (aaan-translate-string val))
-    ((pair? val) (cons (aaan-translate-value (car val))
-                       (aaan-translate-value (cdr val))))
-    (else val)))
-
-#(define (aaan-translate-event event)
-   (if (or (not (ly:music? event)) (aaan-generated-text? event))
-       event
-       (let ((name (ly:music-property event 'name)))
-         (if (memq name '(TextScriptEvent LyricEvent MarkEvent RehearsalMarkEvent))
-             (let ((copy (ly:music-deep-copy event)))
-               (set! (ly:music-property copy 'text)
-                     (aaan-translate-value (ly:music-property copy 'text)))
-               copy)
-             event))))
-
-#(define (aaan-translate-music music)
-   (if (not (eq? aaan-language 'russian))
-       music
-       (music-map
-        (lambda (event)
-          (let ((translated (aaan-translate-event event)))
-            (let ((els (ly:music-property translated 'elements)))
-              (if (pair? els)
-                  (set! (ly:music-property translated 'elements)
-                        (map aaan-translate-event els))))
-            (let ((arts (ly:music-property translated 'articulations)))
-              (if (pair? arts)
-                  (set! (ly:music-property translated 'articulations)
-                        (map aaan-translate-event arts))))
-            translated))
-        (ly:music-deep-copy music))))
-
-aaan-translate =
-#(define-music-function (music) (ly:music?)
-   (aaan-translate-music music))
-
 % Opt-in header / markup text.  Do not wrap the song title.
 aaan-text =
 #(define-scheme-function (str) (string?)
    (markup (aaan-text-lookup str)))
-

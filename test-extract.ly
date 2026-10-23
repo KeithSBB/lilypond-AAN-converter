@@ -46,21 +46,21 @@ flagoff = \absolute { <a, a>4-. }
 #(assert-same "chords"
    #{ \aaan-extract-chords \sample #}
    #{ \absolute {
-        <a cis' e'>4^"M" <a cis' e'>4 <a cis' e'>4 <d f a>4^"m"
-        <e gis d'>4^"7" <b d' f'>4^"dim" r4 r4 r4
+        <a cis' e'>4^"M" <a cis' e'>4 <a cis' e'>4 <a d' f'>4^"m"
+        <gis d' e'>4^"7" <b d' f'>4^"dim" r4 r4 r4
       } #})
 #(assert-same "chords ##t"
    #{ \aaan-extract-chords ##t \sample #}
    #{ \absolute {
-        <a cis' e'>4-.^"M" <a cis' e'>4-. <a cis' e'>4-. <d f a>4-.^"m"
-        <e gis d'>4-.^"7" <b d' f'>4-.^"dim" r4 r4 r4
+        <a cis' e'>4-.^"M" <a cis' e'>4-. <a cis' e'>4-. <a d' f'>4-.^"m"
+        <gis d' e'>4-.^"7" <b d' f'>4-.^"dim" r4 r4 r4
       } #})
 
 #(assert-same "C and C# chords"
    #{ \aaan-extract-chords \cfamily #}
    #{ \absolute {
-        <e g c'>4^"M" <ees g c'>4^"m" <e bes c'>4^"7" <ees ges c'>4^"d" <e g c'>4^"M"
-        <eis gis cis'>4^"M" <e gis cis'>4^"m" <eis b cis'>4^"7" <e g cis'>4^"dim"
+        <g c' e'>4^"M" <g c' ees'>4^"m" <bes c' e'>4^"7" <c' ees' ges'>4^"d" <g c' e'>4^"M"
+        <gis cis' eis'>4^"M" <gis cis' e'>4^"m" <b cis' eis'>4^"7" <g cis' e'>4^"dim"
       } #})
 #(assert-same "C bass with <c, c'>"
    #{ \aaan-extract-bass \cfamily #}
@@ -68,7 +68,7 @@ flagoff = \absolute { <a, a>4-. }
 
 #(assert-same "first unmarked is major"
    #{ \aaan-extract-chords \bare #}
-   #{ \absolute { <a cis' e'>4 <d f a>4^"m" <d f a>4 } #})
+   #{ \absolute { <a cis' e'>4 <a d' f'>4^"m" <a d' f'>4 } #})
 
 #(assert-same "written articulation, flag off"
    #{ \aaan-extract-bass \idem #}
@@ -86,7 +86,7 @@ flagoff = \absolute { <a, a>4-. }
    #{ \absolute { cis4 r4 } #})
 #(assert-same "des stays on the middle line"
    #{ \aaan-extract-chords \boundary #}
-   #{ \absolute { r4 <des f aes>4^"M" } #})
+   #{ \absolute { r4 <aes des' f'>4^"M" } #})
 
 #(assert-same "articulation kept on a chord, flag off"
    #{ \aaan-extract-bass \flagoff #}
