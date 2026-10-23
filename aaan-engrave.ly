@@ -49,7 +49,6 @@
 % Exact title string.  Compared after trimming.  Not translated.
 #(define aaan-song-title "")
 #(define aaan-protected-titles '())
-#(define aaan-untranslated-warned (make-hash-table))
 
 aaanLanguage =
 #(define-void-function (lang) (symbol?)
@@ -693,56 +692,84 @@ aaan-engrave-chords =
    #{ \aaan-convert $music #})
 
 % ---------------------------------------------------------------------------
-% Text.  Chord symbols are already in the selected language and are marked
-% aaan-generated, so this pass leaves them alone.  The title is never translated.
-% Unlisted text is left in the source language and warned once.
+% \aaan-text.  One alist, one lookup.  In Russian mode a table string
+% returns its Russian value.  English mode, and any string not in the
+% table, pass through unchanged.  Italian dynamics and navigation are not
+% table entries, so they stay Italian.
+%
+% Copyright is the one non-lookup case.  It translates only when the only
+% words are [Copyright] Keith Smith; the year is the first 4-digit number
+% not touching other digits; quotes and punctuation are ignored.
 % ---------------------------------------------------------------------------
 
-% Prose and instrument names only.  Dynamics and Italian navigation stay
-% Italian: f, p, mf, fine, D.C., D.S., rit., a tempo, coda.
 #(define aaan-text-dictionary
    '(("Bayan" . "Баян")
-     ("bayan" . "Баян")
-     ("Accordion" . "Аккордеон")
-     ("accordion" . "Аккордеон")
-     ("Bass" . "Бас")
-     ("Chords" . "Аккорды")
-     ("Chord" . "Аккорд")
-     ("Composed by Keith Smith" . "Сочинение: Кит Смит")
-     ("Moderato" . "Умеренно")
-     ("Allegro" . "Аллегро")
-     ("Andante" . "Анданте")
-     ("Adagio" . "Адажио")
-     ("Largo" . "Ларго")
-     ("Presto" . "Престо")
-     ("Vivace" . "Виваче")
-     ("Tempo" . "Темп")
-     ("Introduction" . "Вступление")
-     ("Verse" . "Куплет")
+     ("Composed by Keith Smith" . "К. Смит")
+     ("Moderately" . "Умеренно")
+     ("Intro" . "Вступление")
+     ("Slowly" . "Медленно")
+     ("Unhurried" . "Не спеша")
+     ("Leisurely" . "Неторопливо")
+     ("Moderately fast" . "Умеренно скоро")
+     ("Lively" . "Живо")
+     ("With motion" . "Подвижно")
+     ("Animated" . "Оживлённо")
+     ("Fast" . "Быстро")
+     ("Very fast" . "Очень быстро")
+     ("Calmly" . "Спокойно")
+     ("Broadly" . "Широко")
+     ("Merrily" . "Весело")
+     ("Cheerfully" . "Бодро")
+     ("With restraint" . "Сдержанно")
+     ("Singing" . "Певуче")
+     ("Melodiously" . "Напевно")
+     ("March tempo" . "В темпе марша")
+     ("Waltz tempo" . "В темпе вальса")
      ("Chorus" . "Припев")
-     ("Bridge" . "Бридж")
-     ("Ending" . "Концовка")
-     ("Fine" . "Фине")
-     ("Coda" . "Кода")
-     ("Repeat" . "Повтор")
-     ("D.C." . "Д. К.")
-     ("D.S." . "Д. С.")
-     ("al fine" . "аль фине")
-     ("a tempo" . "а темпо")
-     ("rit." . "рит.")
-     ("ritard." . "ритард.")
-     ("accel." . "акцел.")
-     ("cresc." . "креш.")
-     ("dim." . "дим.")
-     ("sfz" . "сфц")
-     ("fp" . "фп")
-     ("pp" . "пп")
-     ("p" . "п")
-     ("mp" . "мп")
-     ("mf" . "мф")
-     ("f" . "ф")
-     ("ff" . "фф")
-     ("fff" . "ффф")))
+     ("Variation" . "Вариация")
+     ("Instrumental break" . "Отыгрыш")
+     ("Arranged by Keith Smith" . "Обработка К. Смита")
+     ("Bass" . "Бас")))
+
+#(define (aaan-copyright-translation text)
+   ;; Keith Smith is the only rights holder with an approved Russian rendering.
+   (define (first-year)
+     (let ((len (string-length text)))
+       (let loop ((i 0))
+         (cond
+          ((> (+ i 4) len) #f)
+          ((and (string-every char-numeric? (substring text i (+ i 4)))
+                (or (zero? i)
+                    (not (char-numeric? (string-ref text (- i 1)))))
+                (or (= (+ i 4) len)
+                    (not (char-numeric? (string-ref text (+ i 4))))))
+           (substring text i (+ i 4)))
+          (else (loop (+ i 1)))))))
+   (define (letter-words)
+     (let loop ((chars (string->list text)) (word '()) (words '()))
+       (cond
+        ((and (null? chars) (null? word)) (reverse words))
+        ((or (null? chars) (not (char-alphabetic? (car chars))))
+         (loop (if (null? chars) '() (cdr chars))
+               '()
+               (if (null? word)
+                   words
+                   (cons (list->string (reverse word)) words))))
+        (else (loop (cdr chars) (cons (car chars) word) words)))))
+   (and (string? text)
+        (let ((year (first-year)))
+          (and year
+               (member (letter-words)
+                       '(("Keith" "Smith") ("Copyright" "Keith" "Smith")))
+               (string-append "© Кит Смит, " year)))))
+
+#(define (aaan-text-lookup text)
+   (if (or (not (string? text))
+           (not (eq? aaan-language 'russian)))
+       text
+       (or (assoc-ref aaan-text-dictionary text)
+           (aaan-copyright-translation text)
+           text)))
 
 #(define (aaan-title-exception? text)
    (or (and (string? text) (string=? text aaan-song-title))
@@ -750,22 +777,12 @@ aaan-engrave-chords =
             aaan-protected-titles)))
 
 #(define (aaan-translate-string text)
-   (if (or (not (eq? aaan-language 'russian))
-           (not (string? text))
-           (aaan-title-exception? text)
-           (aaan-title-exception? (string-trim text)))
+   (if (not (string? text))
        text
-       (let* ((trimmed (string-trim text))
-              (hit (or (assoc text aaan-text-dictionary)
-                       (assoc trimmed aaan-text-dictionary))))
-         (if hit
-             (cdr hit)
-             (begin
-               (if (not (hash-ref aaan-untranslated-warned text))
-                   (begin
-                     (hash-set! aaan-untranslated-warned text #t)
-                     (log-message 'warning "aaan-translate: left untranslated: ~s\n" text)))
-               text)))))
+       (if (or (aaan-title-exception? text)
+               (aaan-title-exception? (string-trim text)))
+           text
+           (aaan-text-lookup text))))
 
 #(define (aaan-translate-value val)
    (cond
@@ -809,5 +826,5 @@ aaan-translate =
 % Opt-in header / markup text.  Do not wrap the song title.
 aaan-text =
 #(define-scheme-function (str) (string?)
-   (markup (aaan-translate-string str)))
+   (markup (aaan-text-lookup str)))
 
