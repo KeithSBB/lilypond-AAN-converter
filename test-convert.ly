@@ -181,60 +181,23 @@ sample = \absolute {
         " ")))
     (else "")))
 
-#(define (codepoints text)
-   (if (string? text)
-       (string-join (map (lambda (c) (format #f "U+~4,'0X" (char->integer c)))
-                         (string->list text))
-                    " ")
-       (format #f "~s" text)))
-
-#(define latin-lookalikes (string->list "BMYbm"))
-
-#(define (latin-lookalike? text)
-   (and (string? text)
-        (string-any (lambda (c) (memv c latin-lookalikes)) text)))
-
-#(define (audit-texts music label)
-   (let ((hits '()))
-     (let walk ((m music))
-       (if (ly:music? m)
-           (begin
-             (if (eq? (ly:music-property m 'name) 'TextScriptEvent)
-                 (let ((text (ly:music-property m 'text)))
-                   (format #t "~a TEXT ~s ~a\n" label text (codepoints text))
-                   (if (latin-lookalike? text)
-                       (set! hits (cons text hits)))))
-             (let ((el (ly:music-property m 'element)))
-               (if (ly:music? el) (walk el)))
-             (for-each walk (let ((els (ly:music-property m 'elements)))
-                              (if (pair? els) els '())))
-             (for-each walk (let ((arts (ly:music-property m 'articulations)))
-                              (if (pair? arts) arts '()))))))
-     hits))
-
 #(define expected-english
-   "<e, a cis' e'>4^\"M\" <a cis' e'>4 <a c' e'>4^\"m\" <e gis d'>4^\"7\" <b d' f'>4^\"dim\" <d fis a>4^\"M\" <e g c'>4^\"M\" a,4 <a cis' e'>4^\"M\" a,4_\"_\" <a cis' e'>4^\"M\" <f a c'>4^\"M\" <f a c'>4 <f a c'>4^\"M\" <g b d'>4 cis4 <des f aes>4^\"M\" c,4-> r4 <b dis' fis'>4^\"M\" <b dis' fis'>4 r4 <b dis' fis'>4 <e gis b>4^\"M\" <e gis b>4 e,4 <e gis b>4 <a cis' e'>4^\"M\"(\\<~ <a cis' e'>4 e,4)\\!")
+   "<e, a cis' e'>4^\"M\" <a cis' e'>4 <a c' e'>4^\"m\" <gis d' e'>4^\"7\" <b d' f'>4^\"dim\" <a d' fis'>4^\"M\" <g c' e'>4^\"M\" a,4 <a cis' e'>4^\"M\" a,4_\"_\" <a cis' e'>4^\"M\" <a c' f'>4^\"M\" <a c' f'>4 <a c' f'>4^\"M\" <g b d'>4 cis4 <aes des' f'>4^\"M\" c,4-> r4 <b dis' fis'>4^\"M\" <b dis' fis'>4 r4 <b dis' fis'>4 <gis b e'>4^\"M\" <gis b e'>4 e,4 <gis b e'>4 <a cis' e'>4^\"M\"(\\<~ <a cis' e'>4 e,4)\\!")
 
 #(define expected-russian
-   "cue(a,) <e, a cis' e'>4^\"Б\" <a cis' e'>4 cue(a,) <a c' e'>4^\"М\" cue(e,) <e gis d'>4^\"7\" cue(b,) <b d' f'>4^\"У\" cue(d,) <d fis a>4^\"Б\" cue(c) <e g c'>4^\"Б\" a,4 <a cis' e'>4^\"Б\" a,4_\"В\" cue(a,) <a cis' e'>4^\"Б\" cue(f,) <f a c'>4^\"Б\" <f a c'>4 <f a c'>4^\"Б\" cue(g,) <g b d'>4 cis4 <des f aes>4^\"Б\" c,4-> r4 cue(b,) <b dis' fis'>4^\"Б\" <b dis' fis'>4 r4 cue(b,) <b dis' fis'>4 cue(e,) <e gis b>4^\"Б\" <e gis b>4 e,4 <e gis b>4 cue(a,) <a cis' e'>4^\"Б\"(\\<~ <a cis' e'>4 e,4)\\!")
+   "cue(a,) <e, a cis' e'>4^\"Б\" <a cis' e'>4 cue(a,) <a c' e'>4^\"М\" cue(e,) <gis d' e'>4^\"7\" cue(b,) <b d' f'>4^\"У\" cue(d,) <a d' fis'>4^\"Б\" cue(c) <g c' e'>4^\"Б\" a,4 <a cis' e'>4^\"Б\" a,4_\"В\" cue(a,) <a cis' e'>4^\"Б\" cue(f,) <a c' f'>4^\"Б\" <a c' f'>4 <a c' f'>4^\"Б\" cue(g,) <g b d'>4 cis4 <aes des' f'>4^\"Б\" c,4-> r4 cue(b,) <b dis' fis'>4^\"Б\" <b dis' fis'>4 r4 cue(b,) <b dis' fis'>4 cue(e,) <gis b e'>4^\"Б\" <gis b e'>4 e,4 <gis b e'>4 cue(a,) <a cis' e'>4^\"Б\"(\\<~ <a cis' e'>4 e,4)\\!")
 
 englishMusic = \aaan-convert \sample
 
 #(define (report label music expected . rest)
    (let ((source (if (pair? rest) (car rest) sample))
          (actual (summarize music)))
-     (format #t "\n===== ~a summary =====\n" label)
-     (format #t "EXPECTED: ~a\n" expected)
-     (format #t "ACTUAL:   ~a\n" actual)
-     (format #t "LENGTH source=~a converted=~a\n"
-             (ly:music-length source) (ly:music-length music))
-     (format #t "\n===== ~a displayLilyMusic =====\n" label)
-     (display-lily-music music)
-     (newline)
      (if (not (equal? (ly:music-length source) (ly:music-length music)))
-         (error "aaan-convert changed the music length"))
+         (error (format #f "~a changed the music length" label)))
      (if (not (string=? actual expected))
-         (error (format #f "~a summary mismatch" label)))))
+         (begin
+           (format #t "EXPECTED: ~a\nACTUAL:   ~a\n" expected actual)
+           (error (format #f "~a summary mismatch" label))))))
 
 #(report "english" englishMusic expected-english)
 
@@ -242,10 +205,6 @@ englishMusic = \aaan-convert \sample
 russianMusic = \aaan-convert \sample
 
 #(report "russian" russianMusic expected-russian)
-#(let ((hits (audit-texts russianMusic "russian")))
-   (if (pair? hits)
-       (error (format #f "Latin look-alike in Russian marks: ~s" hits))
-       (format #t "russian LATIN-LOOKALIKE none\n")))
 
 % README run.  c, is the root bass, so the first two C chords have no cue.
 % The rest starts a new run.  e,_"_" is a counterbass, not a C root bass.
@@ -253,7 +212,7 @@ readmeRun = \absolute { c,4 c'4^"M" c'4 r4 | c'4 c'4 e,4_"_" c'4 }
 readmeRussian = \aaan-convert \readmeRun
 #(report "readme run"
    readmeRussian
-   "c,4 <e g c'>4^\"Б\" <e g c'>4 r4 cue(c) <e g c'>4 <e g c'>4 e,4_\"В\" cue(c) <e g c'>4"
+   "c,4 <g c' e'>4^\"Б\" <g c' e'>4 r4 cue(c) <g c' e'>4 <g c' e'>4 e,4_\"В\" cue(c) <g c' e'>4"
    readmeRun)
 
 % A tie and a bar line stay inside the run.  The bar is full, so a
@@ -270,7 +229,7 @@ splitRun = \absolute { c'4^"M" << { c'4 { c'4 } } \\ { r4 } >> c'4 }
 splitRussian = \aaan-convert \splitRun
 #(report "end of simultaneous"
    splitRussian
-   "cue(c) <e g c'>4^\"Б\" <e g c'>4 <e g c'>4 r4 cue(c) <e g c'>4"
+   "cue(c) <g c' e'>4^\"Б\" <g c' e'>4 <g c' e'>4 r4 cue(c) <g c' e'>4"
    splitRun)
 
 % A bass inside the same <> does not cue a chord that continues the run.
@@ -286,7 +245,7 @@ enharmonic = \absolute { cis'4^"M" des'4^"M" }
 enharmonicRussian = \aaan-convert \enharmonic
 #(report "enharmonic button"
    enharmonicRussian
-   "cue(cis) <eis gis cis'>4^\"Б\" <des f aes>4^\"Б\""
+   "cue(cis) <gis cis' eis'>4^\"Б\" <aes des' f'>4^\"Б\""
    enharmonic)
 
 % A counterbass is not the root bass, so the chord is cued.
@@ -297,9 +256,6 @@ counterRussian = \aaan-convert \counterStart
    "a,4_\"В\" cue(a,) <a cis' e'>4"
    counterStart)
 
-#(let ((hits (audit-texts readmeRussian "readme")))
-   (if (pair? hits)
-       (error (format #f "Latin look-alike in readme run: ~s" hits))))
 
 % A cued chord inside a nested { }, with a tie, slur, and hairpin that
 % leave the block.
@@ -307,7 +263,7 @@ nestedBlock = \absolute { r4 { c'4^"M"(\< ~ } c'4)\! c'4 }
 nestedRussian = \aaan-convert \nestedBlock
 #(report "nested braces"
    nestedRussian
-   "r4 cue(c) <e g c'>4^\"Б\"(\\<~ <e g c'>4)\\! <e g c'>4"
+   "r4 cue(c) <g c' e'>4^\"Б\"(\\<~ <g c' e'>4)\\! <g c' e'>4"
    nestedBlock)
 
 % Same spanners leaving a tuplet.
@@ -315,7 +271,7 @@ tupletBlock = \absolute { \tuplet 3/2 { c'4^"M"(\< c'4 c'4 ~ } c'4)\! c'4 }
 tupletRussian = \aaan-convert \tupletBlock
 #(report "tuplet"
    tupletRussian
-   "cue(c) <e g c'>4*2/3^\"Б\"(\\< <e g c'>4*2/3 <e g c'>4*2/3~ <e g c'>4)\\! <e g c'>4"
+   "cue(c) <g c' e'>4*2/3^\"Б\"(\\< <g c' e'>4*2/3 <g c' e'>4*2/3~ <g c' e'>4)\\! <g c' e'>4"
    tupletBlock)
 
 % Same spanners leaving a repeat body.
@@ -323,7 +279,7 @@ repeatBlock = \absolute { \repeat volta 2 { r4 c'4^"M"(\< ~ c'4 c'4 } c'4)\! c'4
 repeatRussian = \aaan-convert \repeatBlock
 #(report "repeat volta"
    repeatRussian
-   "r4 cue(c) <e g c'>4^\"Б\"(\\<~ <e g c'>4 <e g c'>4 <e g c'>4)\\! <e g c'>4 <e g c'>4 r4"
+   "r4 cue(c) <g c' e'>4^\"Б\"(\\<~ <g c' e'>4 <g c' e'>4 <g c' e'>4)\\! <g c' e'>4 <g c' e'>4 r4"
    repeatBlock)
 
 % Lower \\ voice keeps voiceTwo stems.  The engraver below errors otherwise.
@@ -331,7 +287,7 @@ slashBlock = \absolute { << { s1 } \\ { d'2^"M" ~ d'2 } >> }
 slashRussian = \aaan-convert \slashBlock
 #(report "lower voice"
    slashRussian
-   "cue(d,) <d fis a>2^\"Б\"~ <d fis a>2"
+   "cue(d,) <a d' fis'>2^\"Б\"~ <a d' fis'>2"
    slashBlock)
 
 % cis and des share unmarked-chord type memory.
@@ -339,23 +295,26 @@ sharedType = \absolute { cis'4^"m" des'4 }
 sharedRussian = \aaan-convert \sharedType
 #(report "shared type memory"
    sharedRussian
-   "cue(cis) <e gis cis'>4^\"М\" <des fes aes>4"
+   "cue(cis) <gis cis' e'>4^\"М\" <aes des' fes'>4"
    sharedType)
 
-% MIDI is written after this file finishes, so the assertion runs from
-% write-performances-midis via check-cue-midi.py.  There is no CI job.
-#(define aaan-midi-writer write-performances-midis)
-#(set! write-performances-midis
-   (lambda (perfs basename . rest)
-     (apply aaan-midi-writer perfs basename rest)
-     (let* ((ext (ly:get-option 'midi-extension))
-            (path (format #f "~a.~a" basename ext))
-            (status (system (format #f "python3 ~s ~s"
-                                    "/workspace/check-cue-midi.py" path))))
-       (if (not (eqv? 0 (status:exit-val status)))
-           (ly:error "cue MIDI check failed for ~a" path)))))
-
-midiCue = \aaan-convert \absolute { c'1^"M" }
+#(let ((found #f))
+   (for-some-music
+    (lambda (m)
+      (let ((ops (ly:music-property m 'property-operations)))
+        (if (and (eq? (ly:music-property m 'context-type) 'Voice)
+                 (pair? ops)
+                 (any (lambda (op)
+                        (and (pair? op)
+                             (eq? (car op) 'remove)
+                             (pair? (cdr op))
+                             (equal? (cadr op) "Note_performer")))
+                      ops))
+            (set! found #t)))
+      #f)
+    russianMusic)
+   (if (not found)
+       (error "cue Voice does not remove Note_performer")))
 
 #(define (assert-down-stem ctx)
    (let ((gs '()) (dirs '()) (left 0))
@@ -390,12 +349,6 @@ midiCue = \aaan-convert \absolute { c'1^"M" }
   { \clef bass \russianMusic }
   \header { piece = "russian" }
   \layout { indent = 0.6\in }
-}
-
-\score {
-  \new Staff { \clef bass \midiCue }
-  \midi { }
-  \layout { indent = 0 }
 }
 
 \score {

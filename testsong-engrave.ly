@@ -1,11 +1,8 @@
 \version "2.24.4"
 \include "aaan-convert.ly"
 
-% Title is a literal header field and is never passed to \aaan-text.
-#(set! aaan-song-title "Engrave Test")
-
 % Two voices at once.  Review baseline for the spelled chord tones is
-% <a cis' g'>, <a cis' e'>, <e g c'>, and <a c' ees'>.
+% <a cis' g'>, <a cis' e'>, <g c' e'>, and <a c' ees'>.
 % English keeps the source marks.  Russian row letters on those
 % chords are 7, Б, Б, and У.
 % e,_"_" is a counterbass: English keeps the source underscore, Russian
@@ -35,7 +32,7 @@ englishConvert = \aaan-convert \testnotes
 }
 
 \aaanLanguage #'russian
-russianConvert = \aaan-translate \aaan-convert \testnotes
+russianConvert = \aaan-convert \testnotes
 #(format #t "\n===== testsong-engrave russian =====\n")
 #(display-lily-music russianConvert)
 #(newline)

@@ -1,7 +1,7 @@
 # lilypond-AAAN-converter
-## Scheme code to convert American Accordionists Association Notation music into fully spelled out accordion chords.
+## Scheme code to convert American Accordion Notation music into fully spelled out accordion chords.
 
-American Accordionists Association Notation (AAAN) is a bass-clef shorthand for Stradella left hand. This repository turns that shorthand into separate bass and chord voices.  It also provides a conversion to fully spelled out chords and optional translation into Russian.
+American Accordion Notation (AAAN) is a bass-clef shorthand for Stradella left hand. This repository turns that shorthand into separate bass and chord voices.  It also provides a conversion to fully spelled out chords and optional translation into Russian.
 
 One include:
 
@@ -26,9 +26,9 @@ midiBass = \aaan-extract-bass [staccato bool] { ... AAAN music ... }
 midiChords = \aaan-extract-chords [staccato bool] { ... AAAN music ... }
 ```
 
-## American Accordionists Association Notation
+## American Accordion Notation
 
-**American Accordionists Association Notation (AAAN)** is the standard system for notating music for the piano accordion, approved in 1938.  It is designed to simplify the Stradella bass system by representing complex left-hand chords with a single note and a symbol.
+**American Accordion Notation (AAAN)** is the standard system for notating music for the piano accordion, approved in 1938.  It is designed to simplify the Stradella bass system by representing complex left-hand chords with a single note and a symbol.
 
 ### Key Notation Rules:
 
@@ -62,16 +62,16 @@ In accordion music staccato is usually implied and not written out.
 ```
 
 ## Conversion for Engraving
-Calling \aaan-convert on **AAAN** music replaces the upper bass staff chord notes with a fully spelled out accordion chord. When an AAAN chord note sounds together with a bass note, e.g. `<e, a>^"M"`, \aaan-convert keeps the bass and expands the chord note in place, giving `<e, a cis' e'>`. An unmarked chord note uses the type most recently defined for that chord root earlier in the music, and the first time it appears it is major. If `\aaanLanguage #'english` is set or omitted, then any notation on the **AAAN** is added to the fully spelled out chord. Everything else is passed through, including the lower bass clef staff bass notes.  
+Calling \aaan-convert on **AAAN** music replaces the upper bass staff chord notes with a fully spelled out accordion chord. When an AAAN chord note sounds together with a bass note, e.g. `<e, a>^"M"`, \aaan-convert keeps the bass and expands the chord note in place. A major, in the lowest inversion on or above `g`, is `<a cis' e'>`, so the result is `<e, a cis' e'>`. An unmarked chord note uses the type most recently defined for that chord root earlier in the music, and the first time it appears it is major. If `\aaanLanguage #'english` is set or omitted, then any notation on the **AAAN** is added to the fully spelled out chord. Everything else is passed through, including the lower bass clef staff bass notes.  
 
 **Accordion chords**
 
-Accordion chords are always three notes
+Accordion chords are always three notes, spelled as the lowest inversion in which every note is on or above G3 (`g`).
 
-* **M**: <root, major third, fifth> inversion applied so all chord notes sit on or above the middle staff line (D)
-* **m**: <root, minor third, fifth> inversion applied so all chord notes sit on or above the middle staff line (D)
-* **7**: <root, major third, minor seventh> (the fifth is omitted so the chord stays three notes), inversion applied so all chord notes sit on or above the middle staff line (D)
-* **d**: <root, minor third, diminished fifth> inversion applied so all chord notes sit on or above the middle staff line (D)
+* **M**: <root, major third, fifth>. C major is `<g c' e'>`. F# major is `<ais cis' fis'>`.
+* **m**: <root, minor third, fifth>
+* **7**: <root, major third, minor seventh> (the fifth is omitted so the chord stays three notes). C7 is `<bes c' e'>`.
+* **d**: <root, minor third, diminished fifth>
 
 
 ### Russian text

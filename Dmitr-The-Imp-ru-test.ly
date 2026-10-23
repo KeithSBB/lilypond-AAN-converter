@@ -3,9 +3,6 @@
 \include "aaan-convert.ly"
 #(use-modules (lily accreg))
 
-% Title stays English in both scores.  Register it so a copy in the music is skipped.
-\aaanProtectTitle "Dmitr The Imp"
-
 % Define a variable to hold the formatted date:
 date = #(strftime "%d-%m-%Y" (localtime (current-time)))
 

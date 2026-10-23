@@ -36,79 +36,48 @@
 
 #(define make-staccato #f)
 
-#(define (ly:duration-sum dur1 dur2)
-   (let ((len1 (ly:duration-length dur1))
-         (len2 (ly:duration-length dur2)))
-     (ly:make-duration 0 0 (+ (ly:moment-main len1) (ly:moment-main len2)))))
-
 #(define (process-simultaneous-music music mode)
-   (log-message 'debug "process-simultaneous-music: Entered with mode ~a\n" mode)
-   (let* ((simul-elems (ly:music-property music 'elements))
-          (new-sim-elems '())
-          (new-sim-elems (append
-                          (map (lambda (simul-event)
-                                 (if (music-is-of-type? simul-event 'sequential-music)
-                                     (if (equal? mode 'bass)
-                                         (scheme-extract-bass simul-event)
-                                         (scheme-extract-chords simul-event))
-                                     simul-event))
-                               simul-elems)
-                          new-sim-elems)))
-     (log-message 'debug "process-simultaneous-music:  New-elements:\n~a\n" (length new-sim-elems))
-     (make-music 'SimultaneousMusic
-                 'elements new-sim-elems)))
+   (make-music
+    'SimultaneousMusic
+    'elements (map (lambda (simul-event)
+                     (if (music-is-of-type? simul-event 'sequential-music)
+                         (if (equal? mode 'bass)
+                             (scheme-extract-bass simul-event)
+                             (scheme-extract-chords simul-event))
+                         simul-event))
+                   (ly:music-property music 'elements))))
 
 % Create a chord from a note-event whose quality is an articulation.
 #(define (create-chord-from-note event)
-   (log-message 'debug "create-chord-from-note: Entered \n")
    (let* ((note-articu (ly:music-property event 'articulations))
-          (pitch (ly:music-property event 'pitch))
-          (notename (ly:pitch-notename pitch))
-          (alteration (ly:pitch-alteration pitch)))
-     (log-message 'debug "create-chord-from-note: articulations: ~a, pitch: notename ~a, alteration ~a\n" note-articu notename alteration)
-     (let* ((chord-name (aaan-quality-token note-articu))
-            (root-notename (ly:pitch-notename pitch))
-            (elements (note-event-to-chord-elements event chord-name)))
-       (log-message 'debug "create-chord-from-note: Creating chord '~a' with root ~a, elements: ~a\n" chord-name root-notename elements)
-       (let ((newchord (make-music 'EventChord
-                                   'elements elements
-                                   'articulations note-articu)))
-         (log-message 'debug "create-chord-from-note: result: ~a\n" newchord)
-         newchord))))
+          (chord-name (aaan-quality-token note-articu))
+          (elements (note-event-to-chord-elements event chord-name)))
+     (make-music 'EventChord
+                 'elements elements
+                 'articulations note-articu)))
 
 % Replace an AAAN EventChord (bass note + chord note, quality on the chord)
 % with a spelled chord.  A chord with no chord-row note becomes a rest.
 #(define (create-chord-from-chord eventchord)
-   (log-message 'debug "create-chord-from-chord: Entered\n ~a\n" eventchord)
    (let* ((chord-elements (ly:music-property eventchord 'elements))
-          (duration (get-event-chord-duration eventchord)))
-     (log-message 'debug "create-chord-from-chord: chord-elements:\n ~a\n" chord-elements)
-     (let* ((chord-name (aaan-quality-token chord-elements))
-              (note-elements (filter (lambda (event)
-                                       (and (ly:music? event) (is-AAAN-chord? event)))
-                                     (event-chord-notes eventchord)))
-              (new-elements (apply append
-                                   (map (lambda (note-event)
-                                          (note-event-to-chord-elements note-event chord-name))
-                                        note-elements))))
-         (log-message 'debug "create-chord-from-chord: chordName: ~a\n" chord-name)
-         (log-message 'debug "create-chord-from-chord: note-elements: ~a\n" note-elements)
-         (log-message 'debug "create-chord-from-chord: new-elements: ~a\n" new-elements)
-         (log-message 'debug "create-chord-from-chord: duration:  ~a\n" duration)
-         (if (equal? (length new-elements) 0)
-             (make-music 'RestEvent 'duration duration)
-             (begin
-               (log-message 'debug "create-chord-from-chord: eventchord:\n  ~a\n" eventchord)
-               (let* ((chord-articu (filter (lambda (elem)
-                                              (not (and (ly:music? elem)
-                                                        (music-is-of-type? elem 'note-event))))
-                                            chord-elements))
-                      (newchord (make-music
-                                 'EventChord
-                                 'elements new-elements
-                                 'articulations chord-articu)))
-                 (log-message 'debug "create-chord-from-chord:  result:\n ~a\n" newchord)
-                 (ly:music-deep-copy newchord)))))))
+          (duration (get-event-chord-duration eventchord))
+          (chord-name (aaan-quality-token chord-elements))
+          (note-elements (filter (lambda (event)
+                                   (and (ly:music? event) (is-AAAN-chord? event)))
+                                 (event-chord-notes eventchord)))
+          (new-elements (apply append
+                               (map (lambda (note-event)
+                                      (note-event-to-chord-elements note-event chord-name))
+                                    note-elements))))
+     (if (null? new-elements)
+         (make-music 'RestEvent 'duration duration)
+         (make-music
+          'EventChord
+          'elements new-elements
+          'articulations (filter (lambda (elem)
+                                   (not (and (ly:music? elem)
+                                             (music-is-of-type? elem 'note-event))))
+                                 chord-elements)))))
 
 #(define (make-script x)
    (make-music 'ArticulationEvent
@@ -145,9 +114,6 @@
 #(define (add-staccato m)
    (add-script m 'staccato))
 
-addStacc = #(define-music-function (music) (ly:music?)
-              (map-some-music add-staccato music))
-
 #(define (maybe-staccato notes)
    (if make-staccato
        (map-some-music add-staccato notes)
@@ -156,15 +122,11 @@ addStacc = #(define-music-function (music) (ly:music?)
 % Do not descend into containers handled by the walker itself.
 #(define (should-skip-descend_into? event)
    (and (ly:music? event)
-        (begin
-          (log-message 'debug "\nshould-skip-desend_into?: Entered ~a\n"
-                       (ly:music-property event 'name))
-          (not (or (music-is-of-type? event 'event-chord)
-                   (music-is-of-type? event 'note-event)
-                   (music-is-of-type? event 'simultaneous-music))))))
+        (not (or (music-is-of-type? event 'event-chord)
+                 (music-is-of-type? event 'note-event)
+                 (music-is-of-type? event 'simultaneous-music)))))
 
 #(define (scheme-extract-chords music)
-   (log-message 'debug "scheme-extract-chords: Entered\n")
    (let ((new-music (ly:music-deep-copy music)))
      (music-selective-map should-skip-descend_into?
       (lambda (event)
@@ -181,31 +143,26 @@ addStacc = #(define-music-function (music) (ly:music?)
       new-music)))
 
 aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
-                        (log-message 'debug "\\aaan-extract-chords: Entered\n=================================\n")
                         (clear-history)
                         (if (boolean? staccato)
                             (set! make-staccato staccato)
                             (set! make-staccato #f))
-                        (let ((proc-music (scheme-extract-chords music)))
-                          (log-message 'debug "\n BEGINING of display-music\n")
-                          (maybe-staccato proc-music)))
+                        (maybe-staccato (scheme-extract-chords music)))
 
+% Parser chords keep post-events in elements.  Reading articulations as
+% well repeats those marks.
 #(define (aaan-source-marks chord)
-   (append (filter (lambda (event)
-                     (and (ly:music? event)
-                          (not (music-is-of-type? event 'note-event))))
-                   (let ((elements (ly:music-property chord 'elements)))
-                     (if (pair? elements) elements '())))
-           (filter ly:music?
-                   (let ((arts (ly:music-property chord 'articulations)))
-                     (if (pair? arts) arts '())))))
+   (filter (lambda (event)
+             (and (ly:music? event)
+                  (not (music-is-of-type? event 'note-event))))
+           (let ((elements (ly:music-property chord 'elements)))
+             (if (pair? elements) elements '()))))
 
 #(define (aaan-bass-marks chord)
    (filter (lambda (event) (not (aaan-quality-mark? event)))
            (aaan-source-marks chord)))
 
 #(define (process-chords-for-bass chord)
-   (log-message 'debug "process-chords-for-bass: Entered")
    (let* ((duration (get-event-chord-duration chord))
           (elements (ly:music-property chord 'elements))
           (filtered (filter (lambda (event) (is-AAAN-bass? event)) elements))
@@ -222,12 +179,10 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
                                 marks)))
               note))
            (else
-            (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
             (make-music 'EventChord
                         'elements (append filtered marks))))))
 
 #(define (scheme-extract-bass music)
-   (log-message 'debug "scheme-extract-bass: Entering\n")
    (let ((new-music (ly:music-deep-copy music)))
      (music-selective-map should-skip-descend_into?
       (lambda (event)
@@ -246,8 +201,6 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
       new-music)))
 
 aaan-extract-bass = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
-                      (log-message 'debug "\\aaan-extract-bass: Entering\n====================================\n")
-                      (log-message 'debug "Staccato input is ~a\n" staccato)
                       (if (boolean? staccato)
                           (set! make-staccato staccato)
                           (set! make-staccato #f))
