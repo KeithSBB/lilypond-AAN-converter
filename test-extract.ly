@@ -13,6 +13,13 @@ cfamily = \absolute {
 }
 bare = \absolute { a4 d'4^"m" d'4 }
 idem = \absolute { c,4-. c,4->-. <e, a,>4-. }
+% A minor must not paint the following B.  The later A is still minor.
+roots = \absolute { a4^"m" b4 a4 }
+% cis is in the space below the middle line.  des sits on the line.
+boundary = \absolute { cis4 des4^"M" }
+% One bass note inside a chord keeps its written articulation when
+% make-staccato is off.  The chord row keeps it too.
+flagoff = \absolute { <a, a>4-. }
 
 #(define (squash text)
    (string-join (string-tokenize text) " "))
@@ -70,18 +77,45 @@ idem = \absolute { c,4-. c,4->-. <e, a,>4-. }
    #{ \aaan-extract-bass ##t \idem #}
    #{ \absolute { c,4-. c,4->-. <e, a,>4-. } #})
 
+#(assert-same "two roots do not share type memory"
+   #{ \aaan-extract-chords \roots #}
+   #{ \absolute { <a c' e'>4^"m" <b dis' fis'>4 <a c' e'>4 } #})
+
+#(assert-same "cis is bass, des is a chord"
+   #{ \aaan-extract-bass \boundary #}
+   #{ \absolute { cis4 r4 } #})
+#(assert-same "des stays on the middle line"
+   #{ \aaan-extract-chords \boundary #}
+   #{ \absolute { r4 <des f aes>4^"M" } #})
+
+#(assert-same "articulation kept on a chord, flag off"
+   #{ \aaan-extract-bass \flagoff #}
+   #{ \absolute { a,4-. } #})
+#(assert-same "chord articulation kept, flag off"
+   #{ \aaan-extract-chords \flagoff #}
+   #{ \absolute { <a cis' e'>4-. } #})
+
+% The type mark stays off the bass voice.  A tie written on the chord stays.
+tied = \absolute { <e, a>4~^"M" <e, a,>4^"M" }
+#(assert-same "tie kept, type mark dropped"
+   #{ \aaan-extract-bass \tied #}
+   #{ \absolute { e,4~ <e, a,>4 } #})
+
 \score {
   \new PianoStaff <<
     \new Staff \with { instrumentName = "AAAN" }
-    { \clef bass \sample \cfamily \bare \idem }
+    { \clef bass \sample \cfamily \bare \idem \roots \boundary \flagoff }
     \new Staff \with { instrumentName = "Bass" }
     { \clef bass \aaan-extract-bass \sample \aaan-extract-bass \cfamily
-      \aaan-extract-bass \bare \aaan-extract-bass \idem }
+      \aaan-extract-bass \bare \aaan-extract-bass \idem
+      \aaan-extract-bass \roots \aaan-extract-bass \boundary
+      \aaan-extract-bass \flagoff }
     \new Staff \with { instrumentName = "Bass stacc." }
     { \clef bass \aaan-extract-bass ##t \sample \aaan-extract-bass ##t \idem }
     \new Staff \with { instrumentName = "Chords" }
     { \clef bass \aaan-extract-chords \sample \aaan-extract-chords \cfamily
-      \aaan-extract-chords \bare }
+      \aaan-extract-chords \bare \aaan-extract-chords \roots
+      \aaan-extract-chords \boundary \aaan-extract-chords \flagoff }
     \new Staff \with { instrumentName = "Chords stacc." }
     { \clef bass \aaan-extract-chords ##t \sample }
   >>

@@ -190,25 +190,41 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
                           (log-message 'debug "\n BEGINING of display-music\n")
                           (maybe-staccato proc-music)))
 
+#(define (aaan-source-marks chord)
+   (append (filter (lambda (event)
+                     (and (ly:music? event)
+                          (not (music-is-of-type? event 'note-event))))
+                   (let ((elements (ly:music-property chord 'elements)))
+                     (if (pair? elements) elements '())))
+           (filter ly:music?
+                   (let ((arts (ly:music-property chord 'articulations)))
+                     (if (pair? arts) arts '())))))
+
+#(define (aaan-bass-marks chord)
+   (filter (lambda (event) (not (aaan-quality-mark? event)))
+           (aaan-source-marks chord)))
+
 #(define (process-chords-for-bass chord)
    (log-message 'debug "process-chords-for-bass: Entered")
    (let* ((duration (get-event-chord-duration chord))
           (elements (ly:music-property chord 'elements))
-          (filtered (filter (lambda (event) (is-AAAN-bass? event)) elements)))
+          (filtered (filter (lambda (event) (is-AAAN-bass? event)) elements))
+          (marks (aaan-bass-marks chord)))
      (cond ((equal? (length filtered) 0) (make-music 'RestEvent 'duration duration))
-           ((equal? (length filtered) 1) (first filtered))
+           ((equal? (length filtered) 1)
+            ;; A one-bass chord is a note.  <a, a>4-. is a,4-. with the
+            ;; staccato flag off.  The chord's type mark is not copied.
+            (let ((note (ly:music-deep-copy (first filtered))))
+              (if (pair? marks)
+                  (set! (ly:music-property note 'articulations)
+                        (append (filter ly:music?
+                                        (ly:music-property note 'articulations))
+                                marks)))
+              note))
            (else
-            (let ((marks (filter (lambda (event)
-                                   (and (ly:music? event)
-                                        (not (music-is-of-type? event 'note-event))))
-                                 elements))
-                  (arts (filter ly:music? (ly:music-property chord 'articulations))))
-              (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
-              (let ((kept (make-music 'EventChord
-                                      'elements (append filtered marks))))
-                (if (pair? arts)
-                    (set! (ly:music-property kept 'articulations) arts))
-                kept))))))
+            (log-message 'debug "process-chords-for-bass: duration is ~a\n" duration)
+            (make-music 'EventChord
+                        'elements (append filtered marks))))))
 
 #(define (scheme-extract-bass music)
    (log-message 'debug "scheme-extract-bass: Entering\n")

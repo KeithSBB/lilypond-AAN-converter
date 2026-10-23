@@ -157,7 +157,7 @@ MIDI_Bass = \aaan-extract-bass ##t \left
 % Russian engraving starts on its own page.
 \pageBreak
 \aaanLanguage #'russian
-RU_Left = \aaan-engrave \left
+RU_Left = \aaan-convert \left
 
 \score {
   \new PianoStaff <<
