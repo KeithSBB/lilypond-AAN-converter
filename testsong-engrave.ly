@@ -2,7 +2,7 @@
 \include "aaan-convert.ly"
 
 % Two voices at once.  Review baseline for the spelled chord tones is
-% <a cis' g'>, <a cis' e'>, <g c' e'>, and <a c' ees'>.
+% <g a cis'>, <a cis' e'>, <g c' e'>, and <a c' ees'>.
 % English keeps the source marks.  Russian row letters on those
 % chords are 7, Б, Б, and У.
 % e,_"_" is a counterbass: English keeps the source underscore, Russian

@@ -130,6 +130,19 @@
    (log-message 'debug "Clear-history:  Entered\n")
    (set! chord-history '()))
 
+% set-cdr! updates a history pair in place, so a snapshot copies the pairs.
+% << >> branches and volta alternatives each start from the history they
+% were entered with, and do not leave their updates behind.
+#(define (aaan-history-snapshot)
+   (map (lambda (item) (cons (car item) (cdr item)))
+        chord-history))
+
+#(define (aaan-call-with-saved-history thunk)
+   (let ((saved (aaan-history-snapshot)))
+     (let ((result (thunk)))
+       (set! chord-history saved)
+       result)))
+
 #(define (get-event-chord-duration eventchord)
    (let* ((elements (filter ly:music? (ly:music-property eventchord 'elements)))
           (durations (filter ly:duration?
@@ -233,26 +246,30 @@
    (>= (aaan-diatonic-steps pitch)
        (aaan-diatonic-steps aaan-bass-center)))
 
-% Lowest close voicing on or above G3 (absolute g).  Spelled tones are
-% built from octave -1, so a tone below g is within one octave of it.
-% One pass is enough.  C major is <g c' e'>, F# major is <ais cis' fis'>,
-% and C7 is <bes c' e'>.  Button split stays at aaan-bass-center (D3).
+% Lowest octave of each spelled tone that is still on or above G3
+% (absolute g).  Tones are built from octave -1.  A tone below g is
+% raised, and a tone an octave higher is lowered when that octave is
+% still on g.  C major is <g c' e'>, F# major is <ais cis' fis'>,
+% C7 is <bes c' e'>, A7 is <g a cis'>, Bb7 is <aes bes d'>, and
+% B7 is <a b dis'>.  Button split stays at aaan-bass-center (D3).
 #(define aaan-voicing-floor (ly:make-pitch -1 4 0))
 
 #(define (aaan-on-or-above-floor? pitch)
    (>= (ly:pitch-semitones pitch)
        (ly:pitch-semitones aaan-voicing-floor)))
 
+#(define (aaan-lowest-on-floor pitch)
+   (let loop ((p pitch))
+     (cond
+      ((not (aaan-on-or-above-floor? p))
+       (loop (ly:pitch-transpose p (ly:make-pitch 1 0 0))))
+      ((aaan-on-or-above-floor?
+        (ly:pitch-transpose p (ly:make-pitch -1 0 0)))
+       (loop (ly:pitch-transpose p (ly:make-pitch -1 0 0))))
+      (else p))))
+
 #(define (aaan-invert-onto-center pitches)
-   (call-with-values
-    (lambda ()
-      (partition aaan-on-or-above-floor? pitches))
-    (lambda (high low)
-      (sort (append high
-                    (map (lambda (p)
-                           (ly:pitch-transpose p (ly:make-pitch 1 0 0)))
-                         low))
-            ly:pitch<?))))
+   (sort (map aaan-lowest-on-floor pitches) ly:pitch<?))
 
 #(define (is-AAAN-chord? note-event)
    (and (ly:music? note-event)
