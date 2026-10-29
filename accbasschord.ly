@@ -49,13 +49,12 @@
          (elements (ly:music-property music 'elements)))
      (make-music
       'SimultaneousMusic
-      'elements (map (lambda (child)
-                       (aaan-call-with-saved-history
-                        (lambda ()
-                          (if (ly:music? child)
-                              (extract child)
-                              child))))
-                     (if (pair? elements) elements '())))))
+      'elements (aaan-map-branches
+                 (lambda (child)
+                   (if (ly:music? child)
+                       (extract child)
+                       child))
+                 elements))))
 
 % The body is walked first.  Each volta alternative then starts from
 % that history and does not pass its updates to the next alternative.
@@ -68,10 +67,7 @@
      (let ((alts (ly:music-property copy 'elements)))
        (if (pair? alts)
            (set! (ly:music-property copy 'elements)
-                 (map (lambda (alt)
-                        (aaan-call-with-saved-history
-                         (lambda () (extract alt))))
-                      alts))))
+                 (aaan-map-alternatives extract alts))))
      copy))
 
 % Create a chord from a note-event whose quality is an articulation.
@@ -188,10 +184,12 @@
       (lambda (event)
         (cond
          ((and (ly:music? event) (music-is-of-type? event 'note-event))
+          (aaan-carry-pitch! event)
           (if (is-AAAN-chord? event)
               (create-chord-from-note event)
               (make-rest event)))
          ((music-is-of-type? event 'event-chord)
+          (aaan-carry-chord-pitches! event)
           (create-chord-from-chord event))
          ((music-is-of-type? event 'simultaneous-music)
           (process-simultaneous-music event 'chords))
@@ -202,6 +200,7 @@
 
 aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
                         (clear-history)
+                        (aaan-reset-pitch)
                         (if (boolean? staccato)
                             (set! make-staccato staccato)
                             (set! make-staccato #f))
@@ -245,13 +244,14 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
      (music-selective-map aaan-descend-into?
       (lambda (event)
         (cond
-         ((and (ly:music? event) (is-AAAN-chord? event))
-          (make-rest event))
-         ((music-is-of-type? event 'note-event)
-          (if (is-AAAN-bass? event)
-              event
-              (make-rest event)))
+         ((and (ly:music? event) (music-is-of-type? event 'note-event))
+          (aaan-carry-pitch! event)
+          (cond
+           ((is-AAAN-chord? event) (make-rest event))
+           ((is-AAAN-bass? event) event)
+           (else (make-rest event))))
          ((music-is-of-type? event 'event-chord)
+          (aaan-carry-chord-pitches! event)
           (process-chords-for-bass event))
          ((music-is-of-type? event 'simultaneous-music)
           (process-simultaneous-music event 'bass))
@@ -261,6 +261,7 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
       new-music)))
 
 aaan-extract-bass = #(define-music-function (staccato music) ((boolean? #f) ly:music?)
+                      (aaan-reset-pitch)
                       (if (boolean? staccato)
                           (set! make-staccato staccato)
                           (set! make-staccato #f))
