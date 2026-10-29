@@ -201,6 +201,32 @@ englishMusic = \aaan-convert \sample
 
 #(report "english" englishMusic expected-english)
 
+% c,8 4 is duration-only shorthand for the previous pitch.  The quarter
+% is c,, and aaan-safe-pitch must not warn.  Same walk for convert,
+% bass extract, and chord extract.
+repeatPitch = \absolute { a,4 a8^"m" c,8 4 a4 }
+
+#(let* ((port (open-output-string))
+        (trio (parameterize ((current-output-port port))
+                (list #{ \aaan-convert \repeatPitch #}
+                      #{ \aaan-extract-bass \repeatPitch #}
+                      #{ \aaan-extract-chords \repeatPitch #})))
+        (log (get-output-string port)))
+   (if (string-contains log "aaan-safe-pitch")
+       (ly:error "duration-only pitch emitted aaan-safe-pitch warning: ~a" log))
+   (report "duration-only pitch"
+           (car trio)
+           "a,4 <a c' e'>8^\"m\" c,8 c,4 <a c' e'>4"
+           repeatPitch)
+   (report "duration-only bass"
+           (cadr trio)
+           "a,4 r8 c,8 c,4 r4"
+           repeatPitch)
+   (report "duration-only chords"
+           (caddr trio)
+           "r4 <a c' e'>8^\"m\" r8 r4 <a c' e'>4"
+           repeatPitch))
+
 \aaanLanguage #'russian
 russianMusic = \aaan-convert \sample
 

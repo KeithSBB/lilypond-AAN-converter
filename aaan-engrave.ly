@@ -324,6 +324,7 @@ aaanLanguage =
          music)))
 
 #(define (aaan-convert-note music bass-info run)
+   (aaan-carry-pitch! music)
    (cond
     ((is-AAAN-chord? music)
      (aaan-convert-chord-note music '() bass-info run '()))
@@ -341,6 +342,7 @@ aaanLanguage =
             (music-is-of-type? music 'multi-measure-rest))))
 
 #(define (aaan-convert-chord music bass-info run)
+   (aaan-carry-chord-pitches! music)
    (let* ((elements (aaan-prop-list music 'elements))
           (chord-notes (filter is-AAAN-chord? elements))
           (bass-notes (filter is-AAAN-bass? elements))
@@ -432,26 +434,25 @@ aaanLanguage =
          (let ((parts (aaan-split-voices elements)))
            (list (make-music
                   'SimultaneousMusic
-                  'elements (map (lambda (items index)
-                                   (aaan-call-with-saved-history
-                                    (lambda ()
-                                      (let ((part
-                                             (if (and (= (length items) 1)
-                                                      (music-is-of-type? (car items)
-                                                                         'sequential-music))
-                                                 (car items)
-                                                 (make-music 'SequentialMusic
-                                                             'elements items))))
-                                        (first (aaan-convert-sequential
-                                                part bass-info run index))))))
-                                 parts
-                                 (iota (length parts))))
+                  'elements (aaan-map-branches
+                             (lambda (part)
+                               (let ((items (car part))
+                                     (index (cdr part)))
+                                 (let ((part-music
+                                        (if (and (= (length items) 1)
+                                                 (music-is-of-type? (car items)
+                                                                    'sequential-music))
+                                            (car items)
+                                            (make-music 'SequentialMusic
+                                                        'elements items))))
+                                   (first (aaan-convert-sequential
+                                           part-music bass-info run index)))))
+                             (map cons parts (iota (length parts)))))
                  #f #f))
-         (let ((walked (map (lambda (e)
-                              (aaan-call-with-saved-history
-                               (lambda ()
-                                 (first (aaan-convert-walk e bass-info run)))))
-                            elements)))
+         (let ((walked (aaan-map-branches
+                        (lambda (e)
+                          (first (aaan-convert-walk e bass-info run)))
+                        elements)))
            (list (aaan-replace-elements music walked) #f #f)))))
 
 #(define (aaan-convert-volta music bass-info run)
@@ -460,13 +461,12 @@ aaanLanguage =
      (let ((body-step (if (ly:music? body)
                           (aaan-convert-walk body bass-info run)
                           (list body bass-info run))))
-       (let ((alt-steps (map (lambda (alt)
-                               (aaan-call-with-saved-history
-                                (lambda ()
-                                  (aaan-convert-walk alt
-                                                    (second body-step)
-                                                    (third body-step)))))
-                             alts)))
+       (let ((alt-steps (aaan-map-alternatives
+                          (lambda (alt)
+                            (aaan-convert-walk alt
+                                              (second body-step)
+                                              (third body-step)))
+                          alts)))
          (let ((copy (ly:music-deep-copy music)))
            (if (ly:music? (first body-step))
                (set! (ly:music-property copy 'element) (first body-step)))
@@ -550,6 +550,7 @@ aaanLanguage =
 aaan-convert =
 #(define-music-function (music) (ly:music?)
    (clear-history)
+   (aaan-reset-pitch)
    (first (aaan-convert-walk (ly:music-deep-copy music) #f #f)))
 
 % ---------------------------------------------------------------------------

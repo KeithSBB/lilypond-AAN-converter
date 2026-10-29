@@ -20,7 +20,9 @@
 % Shared American Accordion Notation (AAAN / AAA) tables and pure helpers.
 % Included by accbasschord.ly (MIDI) and aaan-engrave.ly (print).
 % No staccato policy lives here: MIDI may add it, engraving must not.
-% Pitch accessors are guarded so a missing pitch logs a warning instead of crashing.
+% Duration-only shorthand (c,8 4) is a note with an empty pitch.  The walks
+% copy the previous note's pitch onto it, the way LilyPond does.  A pitch
+% that is still missing after that is a rest or a bug and stays quiet.
 
 \version "2.24.4"
 
@@ -44,20 +46,75 @@
                (display (string-append "[" level-name "] " formatted-message))
                (newline)))))))
 
-% Safe pitch helpers — log and return a sentinel instead of crashing
+% Remembered pitch for duration-only notes.  Each walk starts by clearing it.
+#(define aaan-last-pitch #f)
+
+#(define (aaan-reset-pitch)
+   (set! aaan-last-pitch #f))
+
+% A pitched note is remembered.  A duration-only note copies that pitch.
+% Nothing to copy means the pitch stays missing; callers stay quiet.
+#(define (aaan-carry-pitch! note)
+   (let ((p (ly:music-property note 'pitch)))
+     (if (ly:pitch? p)
+         (set! aaan-last-pitch p)
+         (if (ly:pitch? aaan-last-pitch)
+             (set! (ly:music-property note 'pitch) aaan-last-pitch)))))
+
+#(define (aaan-carry-chord-pitches! music)
+   (for-each (lambda (event)
+               (if (and (ly:music? event)
+                        (music-is-of-type? event 'note-event))
+                   (aaan-carry-pitch! event)))
+             (let ((els (ly:music-property music 'elements)))
+               (if (pair? els) els '()))))
+
+% Each branch starts from the pitch at entry and does not leak.  The first
+% branch is the voice that continues, so its ending pitch is remembered.
+#(define (aaan-map-branches proc elements)
+   (let ((saved aaan-last-pitch)
+         (first-end #f)
+         (seen #f))
+     (let ((out (map (lambda (element)
+                       (aaan-call-with-saved-history
+                        (lambda ()
+                          (set! aaan-last-pitch saved)
+                          (let ((result (proc element)))
+                            (if (not seen)
+                                (begin
+                                  (set! seen #t)
+                                  (set! first-end aaan-last-pitch)))
+                            (set! aaan-last-pitch saved)
+                            result))))
+                     (if (pair? elements) elements '()))))
+       (if seen
+           (set! aaan-last-pitch first-end))
+       out)))
+
+% Each volta alternative starts from the pitch at entry (the end of the
+% body).  The last alternative is what follows the repeat.
+#(define (aaan-map-alternatives proc alts)
+   (let ((entry aaan-last-pitch)
+         (last-end aaan-last-pitch))
+     (let ((out (map (lambda (alt)
+                       (aaan-call-with-saved-history
+                        (lambda ()
+                          (set! aaan-last-pitch entry)
+                          (let ((result (proc alt)))
+                            (set! last-end aaan-last-pitch)
+                            (set! aaan-last-pitch entry)
+                            result))))
+                     (if (pair? alts) alts '()))))
+       (set! aaan-last-pitch last-end)
+       out)))
+
+% #f when the pitch is missing.  Duration-only notes are filled by the
+% walk first.  Still missing after that is a rest or a bug: stay quiet.
 #(define (aaan-safe-pitch music)
    (let ((p (ly:music-property music 'pitch)))
      (if (ly:pitch? p)
          p
-         (begin
-           (log-message 'warning
-                        "aaan-safe-pitch: expected Pitch, got ~a on ~a\n  duration=~a  arts=~a  elements=~a\n"
-                        p
-                        music
-                        (ly:music-property music 'duration)
-                        (ly:music-property music 'articulations)
-                        (ly:music-property music 'elements))
-           #f))))
+         #f)))
 
 % ---------------------------------------------------------------------------
 % Stradella qualities.  Keys are the AAAN text tokens accepted on a chord note.
@@ -212,9 +269,7 @@
          (log-message 'debug "note-event-to-chord-elements: quality ~a\n" chord-name)))
    (let ((root-pitch (aaan-safe-pitch note-event)))
      (if (not root-pitch)
-         (begin
-           (log-message 'warning "note-event-to-chord-elements: no pitch; returning empty\n")
-           '())
+         '()
          (let* ((root (ly:make-pitch -1
                                      (ly:pitch-notename root-pitch)
                                      (ly:pitch-alteration root-pitch)))
