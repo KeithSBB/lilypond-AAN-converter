@@ -101,21 +101,69 @@ tied = \absolute { <e, a>4~^"M" <e, a,>4^"M" }
    #{ \aaan-extract-bass \tied #}
    #{ \absolute { e,4~ <e, a,>4 } #})
 
+% Lowest octave still on or above g.  A7, Bb7, and B7 drop the seventh.
+shells = \absolute { a4^"7" bes4^"7" b4^"7" fis4^"M" c'4^"7" c'4^"M" }
+#(assert-same "A7 Bb7 B7 F# major, C7 and C major"
+   #{ \aaan-extract-chords \shells #}
+   #{ \absolute {
+        <g a cis'>4^"7" <aes bes d'>4^"7" <a b dis'>4^"7" <ais cis' fis'>4^"M"
+        <bes c' e'>4^"7" <g c' e'>4^"M"
+      } #})
+
+% <e, a^"m"> keeps the quality that was written on the chord-row note.
+noteMark = \absolute { <e, a^"m">4 <e, a>4^"maj" <e, a^"o">4 }
+#(assert-same "quality mark on a chord-row note"
+   #{ \aaan-extract-chords \noteMark #}
+   #{ \absolute { <a c' e'>4^"m" <a cis' e'>4^"maj" <a c' ees'>4^"o" } #})
+
+% A bare note, a tuplet, and a repeat inside << >> are walked.
+bareSimul = \absolute { << a4^"m" \\ b4 >> }
+#(assert-same "bare notes in simultaneous"
+   #{ \aaan-extract-chords \bareSimul #}
+   #{ \absolute { << <a c' e'>4^"m" \\ <b dis' fis'>4 >> } #})
+#(assert-same "bare chord note in simultaneous is a rest in the bass"
+   #{ \aaan-extract-bass \absolute { << a4 \\ c,4 >> } #}
+   #{ \absolute { << r4 \\ c,4 >> } #})
+tupletSimul = \absolute { << \tuplet 3/2 { a4^"7" a a } \\ { s2 } >> }
+#(assert-same "tuplet inside simultaneous"
+   #{ \aaan-extract-chords \tupletSimul #}
+   #{ \absolute { << \tuplet 3/2 { <g a cis'>4^"7" <g a cis'> <g a cis'> } \\ { s2 } >> } #})
+repeatSimul = \absolute { << \repeat volta 2 { bes4^"7" } \\ { s4 } >> }
+#(assert-same "repeat inside simultaneous"
+   #{ \aaan-extract-chords \repeatSimul #}
+   #{ \absolute { << \repeat volta 2 { <aes bes d'>4^"7" } \\ { s4 } >> } #})
+
+% Branches and volta alternatives do not share chord-type updates.
+% The note after << >> still sees the history from before the block.
+branchHist = \absolute { << { a4^"m" } \\ { a4 } >> a4 }
+#(assert-same "simultaneous branches do not share history"
+   #{ \aaan-extract-chords \branchHist #}
+   #{ \absolute { << { <a c' e'>4^"m" } \\ { <a cis' e'>4 } >> <a cis' e'>4 } #})
+voltaHist = \absolute { \repeat volta 2 { a4^"7" } \alternative { { a4^"m" } { a4 } } a4 }
+#(assert-same "volta alternatives do not share history"
+   #{ \aaan-extract-chords \voltaHist #}
+   #{ \absolute {
+        \repeat volta 2 { <g a cis'>4^"7" }
+        \alternative { { <a c' e'>4^"m" } { <g a cis'>4 } }
+        <g a cis'>4
+      } #})
+
 \score {
   \new PianoStaff <<
     \new Staff \with { instrumentName = "AAAN" }
-    { \clef bass \sample \cfamily \bare \idem \roots \boundary \flagoff }
+    { \clef bass \sample \cfamily \bare \idem \roots \boundary \flagoff \shells }
     \new Staff \with { instrumentName = "Bass" }
     { \clef bass \aaan-extract-bass \sample \aaan-extract-bass \cfamily
       \aaan-extract-bass \bare \aaan-extract-bass \idem
       \aaan-extract-bass \roots \aaan-extract-bass \boundary
-      \aaan-extract-bass \flagoff }
+      \aaan-extract-bass \flagoff \aaan-extract-bass \shells }
     \new Staff \with { instrumentName = "Bass stacc." }
     { \clef bass \aaan-extract-bass ##t \sample \aaan-extract-bass ##t \idem }
     \new Staff \with { instrumentName = "Chords" }
     { \clef bass \aaan-extract-chords \sample \aaan-extract-chords \cfamily
       \aaan-extract-chords \bare \aaan-extract-chords \roots
-      \aaan-extract-chords \boundary \aaan-extract-chords \flagoff }
+      \aaan-extract-chords \boundary \aaan-extract-chords \flagoff
+      \aaan-extract-chords \shells }
     \new Staff \with { instrumentName = "Chords stacc." }
     { \clef bass \aaan-extract-chords ##t \sample }
   >>

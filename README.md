@@ -36,13 +36,13 @@ midiChords = \aaan-extract-chords [staccato bool] { ... AAAN music ... }
 * **Counterbass:** A bass note with a down-text underscore script, `_"_"`, is a counterbass. The row is not inferred.
 * **Chord Symbols:** A letter or number above the notehead indicates the chord quality:
   
-* **M**: **Major chord**. An unmarked chord note uses the type most recently defined for that chord root earlier in the music, and the first time it appears it is major.
+* **M** (also **maj**): **Major chord**. An unmarked chord note uses the type most recently defined for that chord root earlier in the music, and the first time it appears it is major.
   
-* **m**: **Minor chord.**
+* **m** (also **min**): **Minor chord.**
   
 * **7**: **Dominant 7th chord**.
   
-* **d or dim**: **Diminished chord**.
+* **d**, **dim**, or **o**: **Diminished chord**.
   
 **Visual Example:** Two **C** notes, one below the middle line (D) and one above it, written `<c, c'>^"M"`. The lower note is the bass and the upper note is the chord button: the **C bass button** and the **C major chord button** together, with **M** above the chord.
 
@@ -68,17 +68,17 @@ Calling \aaan-convert on **AAAN** music replaces the upper bass staff chord note
 
 Accordion chords are always three notes, spelled as the lowest inversion in which every note is on or above G3 (`g`).
 
-* **M**: <root, major third, fifth>. C major is `<g c' e'>`. F# major is `<ais cis' fis'>`.
-* **m**: <root, minor third, fifth>
-* **7**: <root, major third, minor seventh> (the fifth is omitted so the chord stays three notes). C7 is `<bes c' e'>`.
-* **d**: <root, minor third, diminished fifth>
+* **M** or **maj**: <root, major third, fifth>. C major is `<g c' e'>`. F# major is `<ais cis' fis'>`.
+* **m** or **min**: <root, minor third, fifth>
+* **7**: <root, major third, minor seventh> (the fifth is omitted so the chord stays three notes). C7 is `<bes c' e'>`. A7 is `<g a cis'>`, Bb7 is `<aes bes d'>`, and B7 is `<a b dis'>`.
+* **d**, **dim**, or **o**: <root, minor third, diminished fifth>
 
 
 ### Russian text
 
 - **Chord letters:** **Б** major, **М** minor, **7**, **У** diminished, placed over the spelled chord. They replace source marks only, so an unmarked chord gets no letter. Pitch names are not printed.
 - **Counterbass:** `\aaan-convert` prints the source `_"_"` as the Cyrillic «В» (U+0412) under the bass note, never Latin B. English mode passes `_"_"` through unchanged.
-- **Cue:** a small parenthesized root notehead under the chord, at zero duration (it takes no time, does not change the rhythm, and is silent in MIDI). Its pitch is the root at the nearest step below the middle line D, so C, C# and Cb sit at `c` and every other root at the comma octave.
+- **Cue:** a small parenthesized root notehead under the chord, at zero duration (it takes no time, does not change the rhythm, and is silent in MIDI). Its pitch is the root at the nearest step below the middle line D. C, C#, and Cb keep their accidentals and sit at the c octave (`c`, `cis`, `ces`), not the comma octave. Every other root sits at the comma octave.
 - **When a cue appears:** on the first chord of a run, unless that chord's root bass was just played, meaning the root as a fundamental bass (not a counterbass) either immediately before with no rest between or inside the same `<>`.
 - **Run:** consecutive chords with the same button, meaning the same root (enharmonics like C# and Db are the same) and the same type. Bar lines and ties do not break a run. A run is broken by a different chord, a separate bass note (fundamental or counterbass), a rest, a skip or full-bar rest, or the end of a simultaneous `<< >>` block. A bass note inside the same chord, like the `e,` in `<e, a>`, does not break the run. If that chord starts a run, it is cued unless the bass is its root as a fundamental bass (not a counterbass). At the start of a `<< >>` block each voice continues the run and root-bass state from before the block.
 - **Example:** absolute pitches, input `c,4 c'4^"M" c'4 r4 | c'4 c'4 e,4_"_" c'4`. Russian output: **Б** only on bar 1 beat 2 (the one source mark), no cue on chord 1 (its root bass was just played), no cue on chord 2 (not first in its run), a cue on bar 2 beat 1 (the rest broke the run), none on beat 2, В under `e,`, and a cue on beat 4.

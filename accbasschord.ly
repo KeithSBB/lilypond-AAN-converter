@@ -36,16 +36,43 @@
 
 #(define make-staccato #f)
 
+#(define (aaan-extract-by-mode mode)
+   (if (equal? mode 'bass)
+       scheme-extract-bass
+       scheme-extract-chords))
+
+% Every child is walked, including a bare note, a tuplet, or a repeat.
+% Each branch starts from the chord history outside the << >> and does
+% not leave its own updates for the next branch.
 #(define (process-simultaneous-music music mode)
-   (make-music
-    'SimultaneousMusic
-    'elements (map (lambda (simul-event)
-                     (if (music-is-of-type? simul-event 'sequential-music)
-                         (if (equal? mode 'bass)
-                             (scheme-extract-bass simul-event)
-                             (scheme-extract-chords simul-event))
-                         simul-event))
-                   (ly:music-property music 'elements))))
+   (let ((extract (aaan-extract-by-mode mode))
+         (elements (ly:music-property music 'elements)))
+     (make-music
+      'SimultaneousMusic
+      'elements (map (lambda (child)
+                       (aaan-call-with-saved-history
+                        (lambda ()
+                          (if (ly:music? child)
+                              (extract child)
+                              child))))
+                     (if (pair? elements) elements '())))))
+
+% The body is walked first.  Each volta alternative then starts from
+% that history and does not pass its updates to the next alternative.
+#(define (aaan-extract-volta music mode)
+   (let ((extract (aaan-extract-by-mode mode))
+         (copy (ly:music-deep-copy music)))
+     (let ((body (ly:music-property copy 'element)))
+       (if (ly:music? body)
+           (set! (ly:music-property copy 'element) (extract body))))
+     (let ((alts (ly:music-property copy 'elements)))
+       (if (pair? alts)
+           (set! (ly:music-property copy 'elements)
+                 (map (lambda (alt)
+                        (aaan-call-with-saved-history
+                         (lambda () (extract alt))))
+                      alts))))
+     copy))
 
 % Create a chord from a note-event whose quality is an articulation.
 #(define (create-chord-from-note event)
@@ -56,28 +83,54 @@
                  'elements elements
                  'articulations note-articu)))
 
-% Replace an AAAN EventChord (bass note + chord note, quality on the chord)
-% with a spelled chord.  A chord with no chord-row note becomes a rest.
+#(define (aaan-event-articulations event)
+   (filter ly:music?
+           (let ((arts (ly:music-property event 'articulations)))
+             (if (pair? arts) arts '()))))
+
+% Replace an AAAN EventChord (bass note + chord note) with a spelled
+% chord.  The quality may sit on the chord, <e, a>^"m", or on a
+% chord-row note, <e, a^"m">.  A chord with no chord-row note becomes a rest.
 #(define (create-chord-from-chord eventchord)
-   (let* ((chord-elements (ly:music-property eventchord 'elements))
+   (let* ((chord-elements (let ((els (ly:music-property eventchord 'elements)))
+                            (if (pair? els) els '())))
           (duration (get-event-chord-duration eventchord))
-          (chord-name (aaan-quality-token chord-elements))
           (note-elements (filter (lambda (event)
                                    (and (ly:music? event) (is-AAAN-chord? event)))
                                  (event-chord-notes eventchord)))
-          (new-elements (apply append
-                               (map (lambda (note-event)
-                                      (note-event-to-chord-elements note-event chord-name))
-                                    note-elements))))
+          (chord-token (aaan-quality-token chord-elements))
+          (note-marks (if (null? note-elements)
+                          '()
+                          (filter aaan-quality-mark?
+                                  (apply append
+                                         (map aaan-event-articulations
+                                              note-elements)))))
+          (new-elements (if (null? note-elements)
+                            '()
+                            (apply append
+                                   (map (lambda (note-event)
+                                          (let ((note-token
+                                                 (aaan-quality-token
+                                                  (aaan-event-articulations note-event))))
+                                            (note-event-to-chord-elements
+                                             note-event
+                                             (if (equal? note-token "unknown")
+                                                 chord-token
+                                                 note-token))))
+                                        note-elements))))
+          (kept (filter (lambda (elem)
+                          (not (and (ly:music? elem)
+                                    (music-is-of-type? elem 'note-event))))
+                        chord-elements))
+          (marks (if (or (any aaan-quality-mark? kept) (null? note-marks))
+                     kept
+                     (append kept (list (first note-marks))))))
      (if (null? new-elements)
          (make-music 'RestEvent 'duration duration)
          (make-music
           'EventChord
           'elements new-elements
-          'articulations (filter (lambda (elem)
-                                   (not (and (ly:music? elem)
-                                             (music-is-of-type? elem 'note-event))))
-                                 chord-elements)))))
+          'articulations marks))))
 
 #(define (make-script x)
    (make-music 'ArticulationEvent
@@ -119,16 +172,19 @@
        (map-some-music add-staccato notes)
        notes))
 
-% Do not descend into containers handled by the walker itself.
-#(define (should-skip-descend_into? event)
+% music-selective-map walks children only when this is true.  Notes,
+% event chords, simultaneous music, and volta repeats are handled by
+% the walker, so their children are not walked again.
+#(define (aaan-descend-into? event)
    (and (ly:music? event)
         (not (or (music-is-of-type? event 'event-chord)
                  (music-is-of-type? event 'note-event)
-                 (music-is-of-type? event 'simultaneous-music)))))
+                 (music-is-of-type? event 'simultaneous-music)
+                 (music-is-of-type? event 'volta-repeated-music)))))
 
 #(define (scheme-extract-chords music)
    (let ((new-music (ly:music-deep-copy music)))
-     (music-selective-map should-skip-descend_into?
+     (music-selective-map aaan-descend-into?
       (lambda (event)
         (cond
          ((and (ly:music? event) (music-is-of-type? event 'note-event))
@@ -139,6 +195,8 @@
           (create-chord-from-chord event))
          ((music-is-of-type? event 'simultaneous-music)
           (process-simultaneous-music event 'chords))
+         ((music-is-of-type? event 'volta-repeated-music)
+          (aaan-extract-volta event 'chords))
          (else event)))
       new-music)))
 
@@ -184,7 +242,7 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
 
 #(define (scheme-extract-bass music)
    (let ((new-music (ly:music-deep-copy music)))
-     (music-selective-map should-skip-descend_into?
+     (music-selective-map aaan-descend-into?
       (lambda (event)
         (cond
          ((and (ly:music? event) (is-AAAN-chord? event))
@@ -197,6 +255,8 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
           (process-chords-for-bass event))
          ((music-is-of-type? event 'simultaneous-music)
           (process-simultaneous-music event 'bass))
+         ((music-is-of-type? event 'volta-repeated-music)
+          (aaan-extract-volta event 'bass))
          (else event)))
       new-music)))
 

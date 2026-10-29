@@ -256,6 +256,50 @@ counterRussian = \aaan-convert \counterStart
    "a,4_\"В\" cue(a,) <a cis' e'>4"
    counterStart)
 
+% A root bass inside <> suppresses the cue.  A counterbass inside <>
+% does not.  s and R break the run, so the next chord is cued again.
+% LilyPond will not engrave a text script on a notehead inside <>, so
+% the counterbass-inside check stays on the music expression.
+rootInside = \absolute { r4 <a, a>4^"M" }
+rootInsideRussian = \aaan-convert \rootInside
+#(report "root bass inside chord"
+   rootInsideRussian
+   "r4 <a, a cis' e'>4^\"Б\""
+   rootInside)
+counterInside = \absolute { r4 <a,_"_" a>4^"M" }
+counterInsideRussian = \aaan-convert \counterInside
+#(report "counterbass inside chord"
+   counterInsideRussian
+   "r4 cue(a,) <a, a cis' e'>4^\"Б\""
+   counterInside)
+% The same mark written on the chord, which LilyPond can engrave.
+counterChord = \absolute { r4 <a, a>4_"_" }
+counterChordRussian = \aaan-convert \counterChord
+#(report "counterbass mark on chord"
+   counterChordRussian
+   "r4 cue(a,) <a, a cis' e'>4_\"В\""
+   counterChord)
+skipRest = \absolute { c'4^"M" s4 c'4 c'4 R1 c'4 }
+skipRestRussian = \aaan-convert \skipRest
+#(report "skip and full-bar rest"
+   skipRestRussian
+   "cue(c) <g c' e'>4^\"Б\" cue(c) <g c' e'>4 <g c' e'>4 cue(c) <g c' e'>4"
+   skipRest)
+
+% Each << >> branch and each volta alternative keeps its own chord type.
+branchHist = \absolute { << { a4^"m" } \\ { a4 } >> a4 }
+branchHistRussian = \aaan-convert \branchHist
+#(report "simultaneous history"
+   branchHistRussian
+   "cue(a,) <a c' e'>4^\"М\" cue(a,) <a cis' e'>4 cue(a,) <a cis' e'>4"
+   branchHist)
+voltaHist = \absolute { \repeat volta 2 { a4^"7" } \alternative { { a4^"m" } { a4 } } }
+voltaHistRussian = \aaan-convert \voltaHist
+#(report "volta history"
+   voltaHistRussian
+   "cue(a,) <g a cis'>4^\"7\" cue(a,) <a c' e'>4^\"М\" <g a cis'>4"
+   voltaHist)
+
 
 % A cued chord inside a nested { }, with a tie, slur, and hairpin that
 % leave the block.
@@ -298,23 +342,30 @@ sharedRussian = \aaan-convert \sharedType
    "cue(cis) <gis cis' e'>4^\"М\" <aes des' fes'>4"
    sharedType)
 
-#(let ((found #f))
+#(let ((found #f) (offset #f))
    (for-some-music
     (lambda (m)
       (let ((ops (ly:music-property m 'property-operations)))
         (if (and (eq? (ly:music-property m 'context-type) 'Voice)
-                 (pair? ops)
-                 (any (lambda (op)
-                        (and (pair? op)
-                             (eq? (car op) 'remove)
-                             (pair? (cdr op))
-                             (equal? (cadr op) "Note_performer")))
-                      ops))
-            (set! found #t)))
+                 (pair? ops))
+            (begin
+              (if (any (lambda (op)
+                         (and (pair? op)
+                              (eq? (car op) 'remove)
+                              (pair? (cdr op))
+                              (equal? (cadr op) "Note_performer")))
+                       ops)
+                  (set! found #t))
+              (if (any (lambda (op)
+                         (and (pair? op) (memq 'extra-offset op)))
+                       ops)
+                  (set! offset #t)))))
       #f)
     russianMusic)
    (if (not found)
-       (error "cue Voice does not remove Note_performer")))
+       (error "cue Voice does not remove Note_performer"))
+   (if (not offset)
+       (error "cue Voice has no extra-offset")))
 
 #(define (assert-down-stem ctx)
    (let ((gs '()) (dirs '()) (left 0))
@@ -358,6 +409,10 @@ sharedRussian = \aaan-convert \sharedType
     \tieRussian
     \splitRussian
     \bassInsideRussian
+    \rootInsideRussian
+    \counterChordRussian
+    \branchHistRussian
+    \voltaHistRussian
   }
   \header { piece = "runs" }
   \layout { indent = 0.4\in }
@@ -366,6 +421,12 @@ sharedRussian = \aaan-convert \sharedType
 \score {
   \new Staff { \clef bass \nestedRussian \tupletRussian \repeatRussian }
   \header { piece = "nested" }
+  \layout { indent = 0.4\in ragged-right = ##t }
+}
+
+\score {
+  \new Staff { \clef bass \skipRestRussian }
+  \header { piece = "skip and rest" }
   \layout { indent = 0.4\in ragged-right = ##t }
 }
 

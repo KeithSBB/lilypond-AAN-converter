@@ -60,8 +60,7 @@ aaanLanguage =
      ((major) "Б")
      ((minor) "М")
      ((dominant) "7")
-     ((diminished) "У")
-     (else "?")))
+     ((diminished) "У")))
 
 #(define (aaan-is-bar-check? music)
    (and (ly:music? music)
@@ -434,20 +433,24 @@ aaanLanguage =
            (list (make-music
                   'SimultaneousMusic
                   'elements (map (lambda (items index)
-                                   (let ((part
-                                          (if (and (= (length items) 1)
-                                                   (music-is-of-type? (car items)
-                                                                      'sequential-music))
-                                              (car items)
-                                              (make-music 'SequentialMusic
-                                                          'elements items))))
-                                     (first (aaan-convert-sequential
-                                             part bass-info run index))))
+                                   (aaan-call-with-saved-history
+                                    (lambda ()
+                                      (let ((part
+                                             (if (and (= (length items) 1)
+                                                      (music-is-of-type? (car items)
+                                                                         'sequential-music))
+                                                 (car items)
+                                                 (make-music 'SequentialMusic
+                                                             'elements items))))
+                                        (first (aaan-convert-sequential
+                                                part bass-info run index))))))
                                  parts
                                  (iota (length parts))))
                  #f #f))
          (let ((walked (map (lambda (e)
-                              (first (aaan-convert-walk e bass-info run)))
+                              (aaan-call-with-saved-history
+                               (lambda ()
+                                 (first (aaan-convert-walk e bass-info run)))))
                             elements)))
            (list (aaan-replace-elements music walked) #f #f)))))
 
@@ -458,9 +461,11 @@ aaanLanguage =
                           (aaan-convert-walk body bass-info run)
                           (list body bass-info run))))
        (let ((alt-steps (map (lambda (alt)
-                               (aaan-convert-walk alt
-                                                 (second body-step)
-                                                 (third body-step)))
+                               (aaan-call-with-saved-history
+                                (lambda ()
+                                  (aaan-convert-walk alt
+                                                    (second body-step)
+                                                    (third body-step)))))
                              alts)))
          (let ((copy (ly:music-deep-copy music)))
            (if (ly:music? (first body-step))
@@ -470,14 +475,35 @@ aaanLanguage =
            (let ((tail (if (null? alt-steps) body-step (last alt-steps))))
              (list copy (second tail) (third tail))))))))
 
+% The cue walker wraps a sequential in \new Voice so slurs stay in that
+% voice.  A container must not keep that Voice as its element: the body
+% is unwrapped, and the Voice is lifted around the container.  A volta
+% alternative stays VoltaSpeccedMusic, so the Voice is not lifted there.
+#(define (aaan-generated-voice? music)
+   (and (ly:music? music)
+        (eq? (ly:music-property music 'name) 'ContextSpeccedMusic)
+        (eq? (ly:music-property music 'context-type) 'Voice)
+        (eq? (ly:music-property music 'create-new) #t)
+        (string? (ly:music-property music 'context-id))))
+
+#(define (aaan-split-generated-voice music)
+   (if (aaan-generated-voice? music)
+       (values music (ly:music-property music 'element))
+       (values #f music)))
+
 #(define (aaan-convert-container music bass-info run)
    (let ((copy (ly:music-deep-copy music))
          (bass bass-info)
-         (run run))
+         (run run)
+         (voice #f))
      (let ((el (ly:music-property copy 'element)))
        (if (ly:music? el)
            (let ((step (aaan-convert-walk el bass run)))
-             (set! (ly:music-property copy 'element) (first step))
+             (call-with-values
+              (lambda () (aaan-split-generated-voice (first step)))
+              (lambda (maybe-voice body)
+                (if maybe-voice (set! voice maybe-voice))
+                (set! (ly:music-property copy 'element) body)))
              (set! bass (second step))
              (set! run (third step)))))
      (let ((els (aaan-prop-list copy 'elements)))
@@ -485,11 +511,20 @@ aaanLanguage =
            (let ((step (aaan-convert-sequential
                         (make-music 'SequentialMusic 'elements els)
                         bass run)))
-             (set! (ly:music-property copy 'elements)
-                   (ly:music-property (first step) 'elements))
+             (call-with-values
+              (lambda () (aaan-split-generated-voice (first step)))
+              (lambda (maybe-voice body)
+                (if maybe-voice (set! voice maybe-voice))
+                (set! (ly:music-property copy 'elements)
+                      (aaan-prop-list body 'elements))))
              (set! bass (second step))
              (set! run (third step)))))
-     (list copy bass run)))
+     (if (and voice
+              (not (music-is-of-type? copy 'volta-specification)))
+         (begin
+           (set! (ly:music-property voice 'element) copy)
+           (list voice bass run))
+         (list copy bass run))))
 
 #(define (aaan-convert-walk music bass-info run)
    (cond

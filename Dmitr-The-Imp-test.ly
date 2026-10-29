@@ -21,8 +21,7 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
 %         \on-the-fly \print-page-number-check-first
 %         \fromproperty #'page:page-number-string
 %       }
- %{    }
-    %} evenFooterMarkup = \oddFooterMarkup
+%     evenFooterMarkup = \oddFooterMarkup
 
 }
 \header {

@@ -17,11 +17,11 @@ testnotes = \absolute {<<{<a, a>4^"7" c,8 r8 ees,4 ges,4}\\{r8 c'8^"M" a2^"dim" 
         instrumentName = "Chords"
         shortInstrumentName = "Chords"
       } { \clef bass \aaan-extract-chords ##t \testnotes }
-    % Voices stay separate.  A7 is <a cis' g'>, Adim is <a c' ees'> (no fifth on 7, diminished fifth on dim).
+    % Voices stay separate.  A7 is <g a cis'>, Adim is <a c' ees'> (no fifth on 7, diminished fifth on dim).
     \new Staff = "Expected chords" \with {
         instrumentName = "Exp Chords"
         shortInstrumentName = "Chords"
-      } { \clef bass << { <a cis' g'>4-.^"7" r8 r8 r4 r4 } \\ { r8 <g c' e'>8-.^"M" <a c' ees'>2-.^"dim" r8 r8 } >> }
+      } { \clef bass << { <g a cis'>4-.^"7" r8 r8 r4 r4 } \\ { r8 <g c' e'>8-.^"M" <a c' ees'>2-.^"dim" r8 r8 } >> }
     \new Staff = "Bass"  \with {
         instrumentName = "Bass"
         shortInstrumentName = "Bass"
