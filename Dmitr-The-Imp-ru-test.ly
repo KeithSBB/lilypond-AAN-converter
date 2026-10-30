@@ -1,10 +1,7 @@
-\version "2.24.0"
+\version "2.24.4"
 \include "articulate.ly"
-\include "aan-engrave.ly"
+\include "aaan-convert.ly"
 #(use-modules (lily accreg))
-
-% Title stays English in both scores.  Register it so a copy in the music is skipped.
-\aanProtectTitle "Dmitr The Imp"
 
 % Define a variable to hold the formatted date:
 date = #(strftime "%d-%m-%Y" (localtime (current-time)))
@@ -24,10 +21,11 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
 %         \on-the-fly \print-page-number-check-first
 %         \fromproperty #'page:page-number-string
 %       }
- %{    }
-    %} evenFooterMarkup = \oddFooterMarkup
+%     evenFooterMarkup = \oddFooterMarkup
 
 }
+% Set before the header so \aaan-text resolves while the header is read.
+\aaanLanguage #'russian
 \header {
   % The following fields are centered
     %dedication = "Dedication"
@@ -36,9 +34,9 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
     %subsubtitle = "Subsubtitle"
       % The following fields are evenly spread on one line
       % the field "instrument" also appears on following pages
-    instrument = \markup \with-color #grey "Bayan"
+    instrument = \aaan-text "Bayan"
     %poet = "Poet"
-    composer = "Composed by Keith Smith"
+    composer = \aaan-text "Composed by Keith Smith"
       % The following fields are placed at opposite ends of the same line
     %meter = "Meter"
     %arranger = "Arranger"
@@ -49,7 +47,7 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
        with \with-url #"http://lilypond.org/"
        \line { LilyPond \simple #(lilypond-version) \title }
        }
-    copyright =\markup { Copyright  "2023 Keith Smith"}
+    copyright = \aaan-text "Copyright 2026-10-1 \"Keith Smith\""
 }
 
 global = {
@@ -99,7 +97,7 @@ right = \relative {
   |g4-3 e-2 a-3 f-1 | gis-4 e-2 a2-3 |g4-3 e-2 a-3 f-1 |<a-2 cis-4>4 <e-1 a-2>4 <a-2 d-5>2|
  }
  \break
-  |ais,2-1( d-2 | f-3 ais-4 | a4-3 g4-2 f4-1 g4-2| a2.-3) \tuplet 3/2 {r8  a-2 b-1 }| <b-1 dis-3>2.   r4^"D.C al fine" |
+  |ais,2-1( d-2 | f-3 ais-4 | a4-3 g4-2 f4-1 g4-2| a2.-3) \tuplet 3/2 {r8  a-2 b-1 }| <b-1 dis-3>2.   r4^"D.C. al fine" |
   
 
   
@@ -141,23 +139,28 @@ fis,4 fis^"m" cis, fis|cis,4 cis'^"7" gis, cis |fis,4 fis^"m" cis, fis|fis,4 fis
 
 }
 
-MIDI_Chords = \aan-extract-chords ##t \left
-MIDI_Bass = \aan-extract-bass ##t \left
+MIDI_Chords = \aaan-extract-chords ##t \left
+MIDI_Bass = \aaan-extract-bass ##t \left
 
 
 \score {
   \new PianoStaff <<
     \new Staff = "Treble" \right
-    \new Staff = "AAN" { \clef bass \left }
+    \new Staff = "AAAN" { \clef bass \left }
   >>
+  \header {
+    title = "Dmitr The Imp"
+    instrument = \aaan-text "Bayan"
+    composer = \aaan-text "Composed by Keith Smith"
+    copyright = \aaan-text "Copyright 2026-10-1 \"Keith Smith\""
+  }
   \layout { }
 
 }
 
 % Russian engraving starts on its own page.
 \pageBreak
-\aanLanguage #'russian
-RU_Left = \aan-engrave \left
+RU_Left = \aaan-convert \left
 
 \score {
   \new PianoStaff <<
@@ -166,8 +169,9 @@ RU_Left = \aan-engrave \left
   >>
   \header {
     title = "Dmitr The Imp"
-    instrument = \aan-text "Bayan"
-    composer = \aan-text "Composed by Keith Smith"
+    instrument = \aaan-text "Bayan"
+    composer = \aaan-text "Composed by Keith Smith"
+    copyright = \aaan-text "Copyright 2026-10-1 \"Keith Smith\""
   }
   \layout { }
 

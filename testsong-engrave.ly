@@ -1,12 +1,12 @@
 \version "2.24.4"
-\include "aan-engrave.ly"
+\include "aaan-convert.ly"
 
-% Title is a literal header field and is never passed to \aan-text.
-#(set! aan-song-title "Engrave Test")
-
-% e,_"_" is an explicit counterbass mark.  It is not inferred.
-% ees, then a^"M" is a bass that differs from the chord root, so the
-% chord is engraved with _"(.)".
+% Two voices at once.  Review baseline for the spelled chord tones is
+% <g a cis'>, <a cis' e'>, <g c' e'>, and <a c' ees'>.
+% English keeps the source marks.  Russian row letters on those
+% chords are 7, Б, Б, and У.
+% e,_"_" is a counterbass: English keeps the source underscore, Russian
+% prints Cyrillic В.  fine stays Italian.
 testnotes = \absolute {
   <<
     { <a, a>4^"7" c,8 r8 ees,4 a4^"M" }
@@ -15,39 +15,37 @@ testnotes = \absolute {
   >>
 }
 
+englishConvert = \aaan-convert \testnotes
+#(format #t "\n===== testsong-engrave english =====\n")
+#(display-lily-music englishConvert)
+#(newline)
+
 \score {
   \new PianoStaff <<
-    \new Staff \with { instrumentName = "AAN" }
+    \new Staff \with { instrumentName = "AAAN" }
     { \clef bass \testnotes }
-    \new Staff \with { instrumentName = "Bass" }
-    { \clef bass \aan-engrave-bass \testnotes }
-    \new Staff \with { instrumentName = "Chords" }
-    { \clef bass \aan-engrave-chords \testnotes }
-    % English symbols: A7, C, Adim, A.  Counterbass prints as _"B".
-    % The A chord after ees, gets _"(.)".  fine stays Italian.
+    \new Staff \with { instrumentName = "Convert" }
+    { \clef bass \englishConvert }
   >>
-  \header {
-    title = "Engrave Test"
-  }
+  \header { title = "Engrave Test" }
   \layout { }
 }
 
-\aanLanguage #'russian
-russianBass = \aan-engrave-bass \testnotes
-russianChords = \aan-engrave-chords \testnotes
+\aaanLanguage #'russian
+russianConvert = \aaan-convert \testnotes
+#(format #t "\n===== testsong-engrave russian =====\n")
+#(display-lily-music russianConvert)
+#(newline)
 
 \score {
   \new PianoStaff <<
-    \new Staff \with { instrumentName = \aan-text "Bass" }
-    { \clef bass \aan-translate \russianBass }
-    \new Staff \with { instrumentName = \aan-text "Chords" }
-    { \clef bass \aan-translate \russianChords }
-    % Row letters only: 7, Б, У, Б.  No pitch names.  f and fine stay Italian.
+    \new Staff \with { instrumentName = \aaan-text "Bass" }
+    { \clef bass \russianConvert }
   >>
   \header {
     title = "Engrave Test"
-    instrument = \aan-text "Bayan"
-    composer = \aan-text "Composed by Keith Smith"
+    instrument = \aaan-text "Bayan"
+    composer = \aaan-text "Composed by Keith Smith"
   }
   \layout { }
 }

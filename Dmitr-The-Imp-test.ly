@@ -1,6 +1,6 @@
-\version "2.24.0"
+\version "2.24.4"
 \include "articulate.ly"
-\include "accbasschord.ly"
+\include "aaan-convert.ly"
 #(use-modules (lily accreg))
 
 % Define a variable to hold the formatted date:
@@ -21,8 +21,7 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
 %         \on-the-fly \print-page-number-check-first
 %         \fromproperty #'page:page-number-string
 %       }
- %{    }
-    %} evenFooterMarkup = \oddFooterMarkup
+%     evenFooterMarkup = \oddFooterMarkup
 
 }
 \header {
@@ -33,9 +32,9 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
     %subsubtitle = "Subsubtitle"
       % The following fields are evenly spread on one line
       % the field "instrument" also appears on following pages
-    instrument = \markup \with-color #grey "Bayan"
+    instrument = \markup \with-color #grey \aaan-text "Bayan"
     %poet = "Poet"
-    composer = "Composed by Keith Smith"
+    composer = \aaan-text "Composed by Keith Smith"
       % The following fields are placed at opposite ends of the same line
     %meter = "Meter"
     %arranger = "Arranger"
@@ -46,7 +45,7 @@ date = #(strftime "%d-%m-%Y" (localtime (current-time)))
        with \with-url #"http://lilypond.org/"
        \line { LilyPond \simple #(lilypond-version) \title }
        }
-    copyright =\markup { Copyright  "2023 Keith Smith"}
+    copyright = \aaan-text "Copyright 2026-10-1 \"Keith Smith\""
 }
 
 global = {
@@ -96,7 +95,7 @@ right = \relative {
   |g4-3 e-2 a-3 f-1 | gis-4 e-2 a2-3 |g4-3 e-2 a-3 f-1 |<a-2 cis-4>4 <e-1 a-2>4 <a-2 d-5>2|
  }
  \break
-  |ais,2-1( d-2 | f-3 ais-4 | a4-3 g4-2 f4-1 g4-2| a2.-3) \tuplet 3/2 {r8  a-2 b-1 }| <b-1 dis-3>2.   r4^"D.C al fine" |
+  |ais,2-1( d-2 | f-3 ais-4 | a4-3 g4-2 f4-1 g4-2| a2.-3) \tuplet 3/2 {r8  a-2 b-1 }| <b-1 dis-3>2.   r4^"D.C. al fine" |
   
 
   
@@ -138,8 +137,8 @@ fis,4 fis^"m" cis, fis|cis,4 cis'^"7" gis, cis |fis,4 fis^"m" cis, fis|fis,4 fis
 
 }
 
-MIDI_Chords = \aan-extract-chords ##t \left
-MIDI_Bass = \aan-extract-bass ##t \left
+MIDI_Chords = \aaan-extract-chords ##t \left
+MIDI_Bass = \aaan-extract-bass ##t \left
 
 
 \score {
@@ -147,9 +146,9 @@ MIDI_Bass = \aan-extract-bass ##t \left
 
   } <<
     \new Staff = "Treble"  \right
-    \new Staff = "AAN" \with {
-        instrumentName = "AAN"
-        shortInstrumentName = "AAN"
+    \new Staff = "AAAN" \with {
+        instrumentName = "AAAN"
+        shortInstrumentName = "AAAN"
       }  { \clef bass \left }
     \new Staff = "chords" \with {
         instrumentName = "Chords"
