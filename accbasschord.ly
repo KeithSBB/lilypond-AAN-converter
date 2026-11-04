@@ -122,7 +122,9 @@
                      kept
                      (append kept (list (first note-marks))))))
      (if (null? new-elements)
-         (make-music 'RestEvent 'duration duration)
+         (if (ly:duration? duration)
+             (make-music 'RestEvent 'duration duration)
+             eventchord)
          (make-music
           'EventChord
           'elements new-elements
@@ -151,7 +153,13 @@
                           (list (make-script x))))
             m)))
      ((EventChord)
-      (if (aaan-has-articulation? m x)
+      ;; Staccato belongs on a chord that has a note.  <>\noBeam has none.
+      (if (or (aaan-has-articulation? m x)
+              (not (any (lambda (event)
+                          (and (ly:music? event)
+                               (music-is-of-type? event 'note-event)))
+                        (let ((els (ly:music-property m 'elements)))
+                          (if (pair? els) els '())))))
           m
           (begin
             (set! (ly:music-property m 'elements)
@@ -224,7 +232,10 @@ aaan-extract-chords = #(define-music-function (staccato music) ((boolean? #f) ly
           (elements (ly:music-property chord 'elements))
           (filtered (filter (lambda (event) (is-AAAN-bass? event)) elements))
           (marks (aaan-bass-marks chord)))
-     (cond ((equal? (length filtered) 0) (make-music 'RestEvent 'duration duration))
+     (cond ((equal? (length filtered) 0)
+            (if (ly:duration? duration)
+                (make-music 'RestEvent 'duration duration)
+                chord))
            ((equal? (length filtered) 1)
             ;; A one-bass chord is a note.  <a, a>4-. is a,4-. with the
             ;; staccato flag off.  The chord's type mark is not copied.

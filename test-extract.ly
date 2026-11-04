@@ -148,6 +148,25 @@ voltaHist = \absolute { \repeat volta 2 { a4^"7" } \alternative { { a4^"m" } { a
         <g a cis'>4
       } #})
 
+% LilyPond 2.26 spells \autoBeamOff as <>\noBeam.  That chord has no
+% duration.  A quarter rest in its place shifts every later attack.
+beamOff = { <>\noBeam a,4 a4^"M" }
+#(let ((src-len (ly:music-length #{ \beamOff #})))
+   (for-each
+    (lambda (title music)
+      (let ((got (ly:music-length music)))
+        (if (not (and (eqv? (ly:moment-main-numerator got)
+                            (ly:moment-main-numerator src-len))
+                      (eqv? (ly:moment-main-denominator got)
+                            (ly:moment-main-denominator src-len))))
+            (ly:error "AAAN extract shifted a durationless chord: ~a\n got ~a\n src ~a"
+                      title got src-len))))
+    '("bass" "bass ##t" "chords" "chords ##t")
+    (list #{ \aaan-extract-bass \beamOff #}
+          #{ \aaan-extract-bass ##t \beamOff #}
+          #{ \aaan-extract-chords \beamOff #}
+          #{ \aaan-extract-chords ##t \beamOff #})))
+
 \score {
   \new PianoStaff <<
     \new Staff \with { instrumentName = "AAAN" }

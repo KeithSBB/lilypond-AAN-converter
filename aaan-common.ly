@@ -200,14 +200,20 @@
        (set! chord-history saved)
        result)))
 
+% A rhythmic duration inside the chord, or #f when it has none.
+% LilyPond 2.26 spells \autoBeamOff as <>\noBeam: an EventChord whose
+% only element is a beam-forbid event.  A made-up quarter there is an
+% extra beat at the start of both extracts.
 #(define (get-event-chord-duration eventchord)
    (let* ((elements (filter ly:music? (ly:music-property eventchord 'elements)))
           (durations (filter ly:duration?
                              (map (lambda (el) (ly:music-property el 'duration))
-                                  elements))))
-     (if (null? durations)
-         (ly:make-duration 2 0)
-         (car durations))))
+                                  elements)))
+          (own (ly:music-property eventchord 'duration)))
+     (cond
+      ((pair? durations) (car durations))
+      ((ly:duration? own) own)
+      (else #f))))
 
 % Text scripts written above the note (^"M", ^"min", ...) are quality tokens.
 #(define (filter-for-chord-names articulations)
